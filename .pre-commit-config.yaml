@@ -1,0 +1,47 @@
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: check-added-large-files
+        fail_fast: true
+      - id: check-case-conflict
+        fail_fast: true
+      - id: check-docstring-first
+        fail_fast: true
+      - id: check-executables-have-shebangs
+        fail_fast: true
+      - id: check-illegal-windows-names
+        fail_fast: true
+      - id: check-merge-conflict
+        fail_fast: true
+      - id: check-json
+        fail_fast: true
+      - id: check-toml
+        fail_fast: true
+      - id: check-yaml
+        fail_fast: true
+      - id: check-xml
+        fail_fast: true
+      - id: debug-statements
+        fail_fast: true
+      - id: detect-private-key
+        fail_fast: true
+      - id: end-of-file-fixer
+      - id: fix-byte-order-marker
+      - id: mixed-line-ending
+        args: [--fix=lf]
+      - id: trailing-whitespace
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.14.4
+    hooks:
+      - id: ruff-check
+        args: [--fix]
+      - id: ruff-format
+
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.18.1
+    hooks:
+      - id: mypy
+        additional_dependencies:
+          - pydantic
