@@ -1,0 +1,85 @@
+import pytest
+from pathlib import Path
+from pydantic import ValidationError
+from lorebinders.core.models import (
+    NarratorConfig,
+    RunConfiguration,
+    Chapter,
+    Book,
+    CharacterProfile
+)
+
+def test_narrator_config_validation():
+    """Verify NarratorConfig defaults and optional fields."""
+    config = NarratorConfig(is_3rd_person=True)
+    assert config.is_3rd_person is True
+    assert config.name is None
+
+    config = NarratorConfig(is_3rd_person=False, name="Watson")
+    assert config.is_3rd_person is False
+    assert config.name == "Watson"
+
+def test_run_configuration_validation():
+    """Verify RunConfiguration requires specific fields and handles defaults."""
+    narrator = NarratorConfig(is_3rd_person=True)
+
+    config = RunConfiguration(
+        book_path=Path("./book.epub"),
+        author_name="Test Author",
+        book_title="Test Book",
+        narrator_config=narrator,
+        custom_traits=["brave"],
+        custom_categories=["personality"]
+    )
+    assert config.author_name == "Test Author"
+    assert config.book_path == Path("./book.epub")
+
+    with pytest.raises(ValidationError):
+        RunConfiguration(
+            book_path=Path("./book.epub"),
+            book_title="Test Book",
+            narrator_config=narrator,
+            custom_traits=[],
+            custom_categories=[]
+        )
+
+def test_chapter_model():
+    """Verify Chapter model data integrity."""
+    chapter = Chapter(
+        number=1,
+        title="The Beginning",
+        content="Once upon a time..."
+    )
+    assert chapter.number == 1
+    assert chapter.title == "The Beginning"
+    assert chapter.content == "Once upon a time..."
+
+    with pytest.raises(ValidationError):
+        Chapter(number="one", title="Title", content="Content")
+
+def test_book_model():
+    """Verify Book model acts as a container for Chapters."""
+    ch1 = Chapter(number=1, title="One", content="Content 1")
+    ch2 = Chapter(number=2, title="Two", content="Content 2")
+
+    book = Book(
+        title="My Book",
+        author="Me",
+        chapters=[ch1, ch2]
+    )
+
+    assert len(book.chapters) == 2
+    assert book.chapters[0].title == "One"
+    assert book.chapters[1].number == 2
+
+def test_character_profile_model():
+    """Verify CharacterProfile structure."""
+    profile = CharacterProfile(
+        name="Sherlock",
+        traits={"intelligence": "High", "brave": "Yes"},
+        confidence_score=0.95
+    )
+
+    assert profile.name == "Sherlock"
+    assert profile.traits["intelligence"] == "High"
+    assert profile.confidence_score == 0.95
