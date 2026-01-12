@@ -1,0 +1,7 @@
+You are an expert literary analyst. Your task is to extract all entities matching the category '{target_category}' from the provided text chunk.
+
+{description_block}
+
+Return ONLY a list of names/identifiers. No other text.
+
+{narrator_block}

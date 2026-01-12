@@ -1,6 +1,15 @@
+from pathlib import Path
+
 from pydantic_ai import Agent, RunContext
 
 from lorebinders.agents.models import ExtractionConfig
+
+
+def _get_prompt_path() -> Path:
+    """Get the path to the extraction prompt template."""
+    return (
+        Path(__file__).parent.parent / "assets" / "prompts" / "extraction.txt"
+    )
 
 
 def _system_prompt(ctx: RunContext[ExtractionConfig]) -> str:
@@ -12,30 +21,30 @@ def _system_prompt(ctx: RunContext[ExtractionConfig]) -> str:
     config = ctx.deps
     category = config.target_category
 
-    prompt = (
-        "You are an expert literary analyst. Your task is to extract all "
-        f"entities matching the category '{category}' from the provided "
-        "text chunk.\n\n"
-    )
+    template = _get_prompt_path().read_text(encoding="utf-8")
 
+    description_block = ""
     if config.description:
-        prompt += f"Category Description: {config.description}\n"
+        description_block = f"Category Description: {config.description}"
 
-    prompt += "\nReturn ONLY a list of names/identifiers. No other text."
-
+    narrator_block = ""
     if config.narrator:
-        prompt += "\n\nNarrator Handling:"
+        narrator_block = "Narrator Handling:"
         if config.narrator.is_3rd_person:
-            prompt += (
+            narrator_block += (
                 "\n- The text is in 3rd person. Do not extract the narrator."
             )
         if config.narrator.name:
-            prompt += (
+            narrator_block += (
                 f"\n- The narrator is named '{config.narrator.name}'."
                 " Do not extract them."
             )
 
-    return prompt
+    return template.format(
+        target_category=category,
+        description_block=description_block,
+        narrator_block=narrator_block,
+    )
 
 
 class EntityExtractionAgent:
