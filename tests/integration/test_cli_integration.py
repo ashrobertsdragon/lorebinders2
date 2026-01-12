@@ -1,13 +1,8 @@
-import os
 from pathlib import Path
 from unittest.mock import patch
 
 import pytest
 from typer.testing import CliRunner
-
-# Set env var before importing modules that depend on it
-os.environ["OPENAI_MODEL"] = "gpt-4o"
-os.environ["OPENAI_API_KEY"] = "dummy"
 
 from lorebinders.cli import app
 from lorebinders.core.models import Book, Chapter

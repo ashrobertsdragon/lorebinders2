@@ -58,6 +58,6 @@ class WorkspaceManager:
         Returns:
             A safe filename string.
         """
-        cleaned = re.sub(r"[^a-zA-Z0-9\-\.]", "_", name)
+        cleaned = re.sub(r"[^a-zA-Z0-9\-]", "_", name)
         cleaned = re.sub(r"_+", "_", cleaned)
         return cleaned

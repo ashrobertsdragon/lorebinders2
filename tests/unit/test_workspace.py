@@ -58,4 +58,4 @@ def test_sanitize_filename(manager):
     assert manager._sanitize_filename("Normal") == "Normal"
     assert manager._sanitize_filename("Space Valid") == "Space_Valid"
     assert manager._sanitize_filename("Bad/Chars\\Here") == "Bad_Chars_Here"
-    assert manager._sanitize_filename("..") == "__"
+    assert manager._sanitize_filename("..") == "_"
