@@ -6,7 +6,11 @@ from lorebinders.agents.models import AnalysisConfig, AnalysisResult
 
 
 def _get_prompt_path() -> Path:
-    """Get the path to the analysis prompt template."""
+    """Get the path to the analysis prompt template.
+
+    Returns:
+        The path to the analysis.txt template file.
+    """
     return Path(__file__).parent.parent / "assets" / "prompts" / "analysis.txt"
 
 
