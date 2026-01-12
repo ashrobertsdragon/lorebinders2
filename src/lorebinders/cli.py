@@ -5,6 +5,8 @@ import typer
 from rich.console import Console
 
 from lorebinders.core.models import NarratorConfig, RunConfiguration
+from lorebinders.ingestion.ingester import EbookIngester
+from lorebinders.ingestion.workspace import WorkspaceManager
 
 app = typer.Typer(no_args_is_help=True)
 console = Console()
@@ -60,10 +62,6 @@ def main(
 
     console.print("[green]Configuration Validated![/green]")
     console.print(config)
-
-    # Ingestion steps
-    from lorebinders.ingestion.ingester import EbookIngester
-    from lorebinders.ingestion.workspace import WorkspaceManager
 
     console.print("[bold blue]Starting Ingestion...[/bold blue]")
 
