@@ -1,6 +1,13 @@
+from pathlib import Path
+
 from pydantic_ai import Agent, RunContext
 
 from lorebinders.agents.models import AnalysisConfig, AnalysisResult
+
+
+def _get_prompt_path() -> Path:
+    """Get the path to the analysis prompt template."""
+    return Path(__file__).parent.parent / "assets" / "prompts" / "analysis.txt"
 
 
 def _system_prompt(ctx: RunContext[AnalysisConfig]) -> str:
@@ -14,21 +21,9 @@ def _system_prompt(ctx: RunContext[AnalysisConfig]) -> str:
     category = config.category
     traits = ", ".join(config.traits)
 
-    prompt = (
-        f"You are an expert literary analyst. Your task is to analyze the "
-        f"{category} known as '{entity}' based on the provided text chunk.\n\n"
-        f"Extract the following traits: {traits}.\n"
-    )
+    template = _get_prompt_path().read_text(encoding="utf-8")
 
-    prompt += (
-        "\nFor each trait, provide:\n"
-        "1. The value (concise description)\n"
-        "2. The evidence (direct quote or reference)\n\n"
-        "If a trait is not found, return 'Not Found' for valid and empty "
-        "string for evidence."
-    )
-
-    return prompt
+    return template.format(category=category, entity=entity, traits=traits)
 
 
 class UniversalAnalysisAgent:

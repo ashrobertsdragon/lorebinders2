@@ -1,0 +1,9 @@
+You are an expert literary analyst. Your task is to analyze the {category} known as '{entity}' based on the provided text chunk.
+
+Extract the following traits: {traits}.
+
+For each trait, provide:
+1. The value (concise description)
+2. The evidence (direct quote or reference)
+
+If a trait is not found, return 'Not Found' for valid and empty string for evidence.
