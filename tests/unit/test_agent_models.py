@@ -23,7 +23,7 @@ def test_extraction_config_defaults():
     config = ExtractionConfig(target_category="Locations")
     assert config.target_category == "Locations"
     assert config.narrator is None
-    assert config.description is None  # Assuming optional
+    assert config.description is None
 
 
 def test_analysis_config_valid():
@@ -40,8 +40,6 @@ def test_analysis_config_valid():
 
 def test_analysis_config_validation():
     """Test AnalysisConfig validation."""
-    # Example: traits should probably not be empty if that's a requirement,
-    # but strictly following the model:
     config = AnalysisConfig(
         target_entity="Shire",
         category="Location",

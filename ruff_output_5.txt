@@ -1,0 +1,12 @@
+warning: Selection `DOC` has no effect because preview is not enabled.
+E501 Line too long (83 > 80)
+  --> src/lorebinders/agents/extraction.py:12:81
+   |
+11 |     prompt = (
+12 |         "You are an expert literary analyst. Your task is to extract all entities "
+   |                                                                                 ^^^
+13 |         f"matching the category '{category}' from the provided text chunk.\n\n"
+14 |     )
+   |
+
+Found 1 error.
