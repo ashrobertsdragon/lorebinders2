@@ -1,5 +1,5 @@
 import inspect
-from typing import Protocol, get_type_hints
+from typing import Protocol
 from pathlib import Path
 
 import pytest
