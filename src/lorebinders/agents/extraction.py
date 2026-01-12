@@ -6,7 +6,11 @@ from lorebinders.agents.models import ExtractionConfig
 
 
 def _get_prompt_path() -> Path:
-    """Get the path to the extraction prompt template."""
+    """Get the path to the extraction prompt template.
+
+    Returns:
+        The path to the extraction.txt template file.
+    """
     return (
         Path(__file__).parent.parent / "assets" / "prompts" / "extraction.txt"
     )
