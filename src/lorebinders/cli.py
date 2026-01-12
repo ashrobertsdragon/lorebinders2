@@ -39,7 +39,11 @@ def main(
         typer.Option("--category", help="Custom category to track"),
     ] = None,
 ) -> None:
-    """LoreBinders: Create a Series Bible from your book."""
+    """LoreBinders: Create a Series Bible from your book.
+
+    Raises:
+        typer.Exit: If ingestion fails.
+    """
     narrator_config = NarratorConfig(
         is_3rd_person=is_3rd_person,
         name=narrator_name,
@@ -57,7 +61,31 @@ def main(
     console.print("[green]Configuration Validated![/green]")
     console.print(config)
 
-    console.print("[yellow]Orchestrator not yet connected.[/yellow]")
+    # Ingestion steps
+    from lorebinders.ingestion.ingester import EbookIngester
+    from lorebinders.ingestion.workspace import WorkspaceManager
+
+    console.print("[bold blue]Starting Ingestion...[/bold blue]")
+
+    workspace_mgr = WorkspaceManager()
+    workspace_path = workspace_mgr.ensure_workspace(
+        author=config.author_name,
+        title=config.book_title,
+    )
+    console.print(f"Workspace ready: {workspace_path}")
+
+    ingester = EbookIngester()
+    try:
+        book = ingester.ingest(
+            source=config.book_path, output_dir=workspace_path
+        )
+        console.print(
+            f"[bold green]Ingestion Complete![/bold green] "
+            f"Imported {len(book.chapters)} chapters."
+        )
+    except Exception as e:
+        console.print(f"[bold red]Ingestion Failed:[/bold red] {e}")
+        raise typer.Exit(code=1)
 
 
 if __name__ == "__main__":
