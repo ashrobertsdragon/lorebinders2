@@ -32,6 +32,11 @@ repos:
         args: [--fix=lf]
       - id: trailing-whitespace
 
+  - repo: https://github.com/ashrobertsdragon/remove-comments-pre-commit
+    rev: v0.2.0
+    hooks:
+      - id: remove-comments
+
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.14.4
     hooks:
