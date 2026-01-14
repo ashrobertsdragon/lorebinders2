@@ -2,8 +2,11 @@ import re
 from pathlib import Path
 
 import ebook2text
+from dotenv import load_dotenv
 
 from lorebinders.core.models import Book, Chapter
+
+load_dotenv()
 
 
 class EbookIngester:
@@ -41,7 +44,8 @@ class EbookIngester:
         Returns:
             str: The extracted raw text content of the book.
         """
-        return ebook2text.convert(str(path))
+        metadata = {"title": path.stem, "author": "Unknown"}
+        return ebook2text.convert_file(path, metadata, save_file=False)
 
     def _split_chapters(self, text: str) -> list[Chapter]:
         """Split text into chapters based on delimiters.
