@@ -24,10 +24,6 @@ def test_e2e_ingestion_flow(tmp_path):
     Uses PydanticAI TestModel to simulate LLM responses without mocks.
     """
 
-
-    os.environ["OPENAI_MODEL"] = "gpt-4o"
-    os.environ["OPENAI_API_KEY"] = "dummy"
-
     book_content = (
         "Project Genesis\n"
         "***\n"
@@ -41,13 +37,7 @@ def test_e2e_ingestion_flow(tmp_path):
     source_file = tmp_path / "genesis.txt"
     source_file.write_text(book_content)
 
-
-
-
-
     extraction_response = json.dumps(["Protagonist", "Antagonist"])
-
-
 
     analysis_response_protagonist = json.dumps({
         "entity_name": "Protagonist",
@@ -57,15 +47,6 @@ def test_e2e_ingestion_flow(tmp_path):
             {"trait": "Personality", "value": "Brave", "evidence": "Fights monster"}
         ]
     })
-
-
-
-
-
-
-
-
-
 
     with extraction_agent.override(model=TestModel()), \
          analysis_agent.override(model=TestModel()):
@@ -81,8 +62,6 @@ def test_e2e_ingestion_flow(tmp_path):
                 ],
             )
 
-
-            print(result.output)
             assert result.exit_code == 0
             assert "Build Complete!" in result.output
             assert "PDF Report generated" in result.output
@@ -92,8 +71,7 @@ def test_e2e_ingestion_flow(tmp_path):
             assert workspace_dir.exists()
             assert workspace_dir.is_dir()
 
-
-            pdf_path = workspace_dir / "series_bible.pdf"
+            pdf_path = workspace_dir / "E2E_Book_story_bible.pdf"
             assert pdf_path.exists()
             assert pdf_path.stat().st_size > 0
 

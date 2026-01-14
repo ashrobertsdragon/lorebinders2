@@ -1,41 +1,53 @@
+import json
 import pytest
-from unittest.mock import MagicMock, patch
-from lorebinders.agents.extraction import EntityExtractionAgent
+from pydantic_ai.models.function import FunctionModel
+from pydantic_ai.messages import ModelMessage, ModelResponse, TextPart
+from lorebinders.agents.extraction import EntityExtractionAgent, extraction_agent
 from lorebinders.agents.models import ExtractionConfig
 from lorebinders.core.models import NarratorConfig
 
-@pytest.fixture
-def mock_pydantic_agent():
-    with patch("lorebinders.agents.extraction.Agent") as mock:
-        yield mock
+def test_extraction_agent_run_sync_and_prompt():
+    """Test run_sync execution and system prompt generation using PydanticAI."""
 
-def test_extraction_agent_run_sync(mock_pydantic_agent):
-    """Test that run_sync calls the underlying agent correctly."""
-    mock_instance = mock_pydantic_agent.return_value
-    mock_instance.run_sync.return_value.data = ["Hero", "Villain"]
+    captured_messages = []
 
-    agent = EntityExtractionAgent()
-    config = ExtractionConfig(
-        target_category="Characters",
-        description="Main characters",
-        narrator=NarratorConfig(is_3rd_person=True)
-    )
-    text = "The Hero fought the Villain."
+    async def mock_model_call(messages: list[ModelMessage], info) -> ModelResponse:
+        nonlocal captured_messages
+        captured_messages = messages
 
-    result = agent.run_sync(text, config)
 
-    assert result == ["Hero", "Villain"]
-    mock_instance.run_sync.assert_called_once_with(text, deps=config)
 
-def test_extraction_agent_system_prompt_logic():
-    """Test that the system prompt generation logic works (if exposed)."""
-    with patch("lorebinders.agents.extraction.Agent") as mock_cls:
+
+        return ModelResponse(parts=[TextPart(content=json.dumps({"response": ["Hero", "Villain"]}))])
+
+    with extraction_agent.override(model=FunctionModel(mock_model_call)):
         agent = EntityExtractionAgent()
+        config = ExtractionConfig(
+            target_category="Characters",
+            description="Main characters",
+            narrator=NarratorConfig(is_3rd_person=True)
+        )
+        text = "The Hero fought the Villain."
 
-        mock_cls.assert_called_once()
-        call_kwargs = mock_cls.call_args[1]
-        assert "deps_type" in call_kwargs
-        assert call_kwargs["deps_type"] == ExtractionConfig
-        assert "result_type" in call_kwargs
+        result = agent.run_sync(text, config)
 
-        assert "system_prompt" in call_kwargs
+        assert result == ["Hero", "Villain"]
+
+
+    from pydantic_ai.messages import ModelRequest, SystemPromptPart
+
+    system_prompt_content = ""
+    for msg in captured_messages:
+        if isinstance(msg, ModelRequest):
+            for part in msg.parts:
+                if isinstance(part, SystemPromptPart):
+                    system_prompt_content = part.content
+                    break
+
+    assert system_prompt_content != ""
+
+
+    assert "Variable: target_category" not in system_prompt_content
+    assert "Characters" in system_prompt_content
+    assert "Category Description: Main characters" in system_prompt_content
+    assert "The text is in 3rd person" in system_prompt_content

@@ -1,50 +1,62 @@
+import json
 import pytest
-from unittest.mock import MagicMock, patch
-from lorebinders.agents.analysis import UniversalAnalysisAgent
+from pydantic_ai.models.function import FunctionModel
+from pydantic_ai.messages import ModelMessage, ModelRequest, ModelResponse, SystemPromptPart, TextPart
+
+from lorebinders.agents.analysis import UniversalAnalysisAgent, analysis_agent
 from lorebinders.agents.models import AnalysisConfig, AnalysisResult, TraitValue
 
-@pytest.fixture
-def mock_pydantic_agent():
-    with patch("lorebinders.agents.analysis.Agent") as mock:
-        yield mock
+def test_analysis_agent_run_sync_and_prompt():
+    """Test run_sync execution and system prompt generation using PydanticAI."""
 
-def test_analysis_agent_run_sync(mock_pydantic_agent):
-    """Test that run_sync calls the underlying agent correctly."""
-    mock_instance = mock_pydantic_agent.return_value
+    captured_messages = []
 
-    expected_result = AnalysisResult(
+    expected_result_dict = {
+        "entity_name": "Gandalf",
+        "category": "Character",
+        "traits": [
+            {"trait": "Role", "value": "Wizard", "evidence": "Uses magic"},
+            {"trait": "Origin", "value": "Maiar", "evidence": "From Valinor"}
+        ]
+    }
+
+    expected_result_obj = AnalysisResult(
         entity_name="Gandalf",
         category="Character",
         traits=[
-            TraitValue(trait="Role", value="Wizard", evidence="Uses magic"),
-            TraitValue(trait="Origin", value="Maiar", evidence="From Valinor")
+             TraitValue(trait="Role", value="Wizard", evidence="Uses magic"),
+             TraitValue(trait="Origin", value="Maiar", evidence="From Valinor")
         ]
     )
-    mock_instance.run_sync.return_value.data = expected_result
 
-    agent = UniversalAnalysisAgent()
-    config = AnalysisConfig(
-        target_entity="Gandalf",
-        category="Character",
-        traits=["Role", "Origin"]
-    )
-    text = "Gandalf the Wizard came from Valinor."
+    async def mock_model_call(messages: list[ModelMessage], info) -> ModelResponse:
+        nonlocal captured_messages
+        captured_messages = messages
+        return ModelResponse(parts=[TextPart(content=json.dumps(expected_result_dict))])
 
-    result = agent.run_sync(text, config)
-
-    assert result == expected_result
-    mock_instance.run_sync.assert_called_once_with(text, deps=config)
-
-def test_analysis_agent_system_prompt_logic():
-    """Test that the system prompt generation logic works."""
-    with patch("lorebinders.agents.analysis.Agent") as mock_cls:
+    with analysis_agent.override(model=FunctionModel(mock_model_call)):
         agent = UniversalAnalysisAgent()
+        config = AnalysisConfig(
+            target_entity="Gandalf",
+            category="Character",
+            traits=["Role", "Origin"]
+        )
+        text = "Gandalf the Wizard came from Valinor."
 
-        mock_cls.assert_called_once()
-        call_kwargs = mock_cls.call_args[1]
-        assert "deps_type" in call_kwargs
-        assert call_kwargs["deps_type"] == AnalysisConfig
-        assert "result_type" in call_kwargs
-        assert call_kwargs["result_type"] == AnalysisResult
+        result = agent.run_sync(text, config)
 
-        assert "system_prompt" in call_kwargs
+        assert result == expected_result_obj
+
+    system_prompt_content = ""
+    for msg in captured_messages:
+        if isinstance(msg, ModelRequest):
+            for part in msg.parts:
+                if isinstance(part, SystemPromptPart):
+                    system_prompt_content = part.content
+                    break
+
+    assert system_prompt_content != ""
+
+    assert "Gandalf" in system_prompt_content
+    assert "Character" in system_prompt_content
+    assert "Role, Origin" in system_prompt_content

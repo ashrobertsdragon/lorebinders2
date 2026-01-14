@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 
 from pydantic_ai import Agent, RunContext
@@ -17,7 +18,7 @@ def _get_prompt_path() -> Path:
 
 
 extraction_agent = Agent(
-    "openai:gpt-4o",
+    os.getenv("EXTRACTION_MODEL"),
     deps_type=ExtractionConfig,
     output_type=list[str],
 )
@@ -62,12 +63,8 @@ def _system_prompt(ctx: RunContext[ExtractionConfig]) -> str:
 class EntityExtractionAgent:
     """Agent for extracting entities of a specific category from text."""
 
-    def __init__(self, model_name: str = "openai:gpt-4o"):
-        """Initialize the extraction agent.
-
-        Note: model_name is currently ignored as we use the global agent.
-        In the future, we could configure the global agent or use a factory.
-        """
+    def __init__(self):
+        """Initialize the extraction agent."""
         self.agent = extraction_agent
 
     def run_sync(self, text: str, config: ExtractionConfig) -> list[str]:
