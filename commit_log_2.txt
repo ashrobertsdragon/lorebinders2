@@ -1,5 +1,5 @@
 [WARNING] Unstaged files detected.
-[INFO] Stashing unstaged files to /home/ashlynn/.cache/pre-commit/patch1768359042-1779915.
+[INFO] Stashing unstaged files to /home/ashlynn/.cache/pre-commit/patch1768360934-1806676.
 check for added large files..............................................Passed
 check for case conflicts.................................................Passed
 check docstring is first.................................................Passed
@@ -15,38 +15,22 @@ detect private key.......................................................Passed
 fix end of files.........................................................Passed
 fix utf-8 byte order marker..............................................Passed
 mixed line ending........................................................Passed
-trim trailing whitespace.................................................Failed
-- hook id: trailing-whitespace
-- exit code: 1
-- files were modified by this hook
-
-Fixing tests/e2e/test_ingestion_workflow.py
-
+trim trailing whitespace.................................................Passed
 Remove Inline Comments...................................................Failed
 - hook id: remove-comments
 - exit code: 1
 - files were modified by this hook
 
-Removed comments from src/lorebinders/agents/analysis.py
-Removed comments from tests/e2e/test_ingestion_workflow.py
-Removed comments from src/lorebinders/agents/extraction.py
-Removed comments from src/lorebinders/cli.py
-Removed comments from src/lorebinders/cli_adapters.py
+Removed comments from src/lorebinders/__init__.py
 
 ruff check...............................................................Failed
 - hook id: ruff-check
 - files were modified by this hook
 
 warning: Selection `DOC` has no effect because preview is not enabled.
-Found 3 errors (3 fixed, 0 remaining).
+Found 1 error (1 fixed, 0 remaining).
 
-ruff format..............................................................Failed
-- hook id: ruff-format
-- files were modified by this hook
-
-warning: Selection `DOC` has no effect because preview is not enabled.
-5 files reformatted
-
+ruff format..............................................................Passed
 mypy.....................................................................Passed
 [WARNING] Stashed changes conflicted with hook auto-fixes... Rolling back fixes...
-[INFO] Restored changes from /home/ashlynn/.cache/pre-commit/patch1768359042-1779915.
+[INFO] Restored changes from /home/ashlynn/.cache/pre-commit/patch1768360934-1806676.
