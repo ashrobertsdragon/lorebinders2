@@ -54,14 +54,16 @@ def test_ingest_flow(ingester, mock_ebook2text, tmp_path):
     """Test the full ingest flow using mocked ebook2text."""
     source_file = tmp_path / "book.epub"
     source_file.touch()
-    mock_ebook2text.convert.return_value = "Chapter 1\nText.\n***\nChapter 2\nEnd."
+    mock_ebook2text.convert_file.return_value = "Chapter 1\nText.\n***\nChapter 2\nEnd."
 
     book = ingester.ingest(source_file, tmp_path)
 
     assert isinstance(book, Book)
     assert len(book.chapters) == 2
     assert book.title == "book"
-    mock_ebook2text.convert.assert_called_once_with(str(source_file))
+
+    expected_metadata = {"title": "book", "author": "Unknown"}
+    mock_ebook2text.convert_file.assert_called_once_with(source_file, expected_metadata, save_file=False)
 
 
 def test_ingest_file_not_found(ingester, tmp_path):
