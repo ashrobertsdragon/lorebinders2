@@ -42,4 +42,6 @@ class LoreBinderBuilder:
                 profile = self.analysis.analyze(name, chapter)
                 all_profiles.append(profile)
 
-        self.reporting.generate(all_profiles, output_dir / "series_bible.pdf")
+        self.reporting.generate(
+            all_profiles, output_dir / f"{config.book_title}_story_bible.pdf"
+        )

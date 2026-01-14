@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 
 from pydantic_ai import Agent, RunContext
@@ -15,7 +16,7 @@ def _get_prompt_path() -> Path:
 
 
 analysis_agent = Agent(
-    "openai:gpt-4o",
+    os.getenv("ANALYSIS_MODEL"),
     deps_type=AnalysisConfig,
     output_type=AnalysisResult,
 )
@@ -41,7 +42,7 @@ def _system_prompt(ctx: RunContext[AnalysisConfig]) -> str:
 class UniversalAnalysisAgent:
     """Agent for analyzing specific entities against user-defined schemas."""
 
-    def __init__(self, model_name: str = "openai:gpt-4o"):
+    def __init__(self):
         """Initialize the analysis agent."""
         self.agent = analysis_agent
 
