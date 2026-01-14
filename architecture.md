@@ -28,32 +28,32 @@ This flowchart illustrates the high-level process from user input to final PDF g
 flowchart TD
     User([User]) -->|Input Metadata| Main[main.py]
     Main -->|BookDict| Builder[build_lorebinder.py]
-    
+
     subgraph BuilderProcess [LoreBinder Builder]
         Start["start()"] --> Convert[convert_book_file]
         Convert --> CreateBook[create_book]
         CreateBook --> InitAI[Initialize AI & RateLimiters]
         InitAI --> BuildBinder[build_binder]
-        
+
         subgraph Processing Loop [For Each Chapter]
             direction TB
             ExtractNames[perform_ner]
             Analyze[analyze_names]
             UpdateBk[Update Book.binder]
-            
+
             ExtractNames -->|RoleScript| Extractor[name_extractor]
             Extractor -->|Names| Chapter
             Chapter --> Analyze
             Analyze -->|RoleScript| Analyzer[name_analyzer]
             Analyzer -->|Analysis| UpdateBk
         end
-        
+
         BuildBinder --> ProcessingLoop
         ProcessingLoop --> Summarize[summarize]
         Summarize --> Clean[data_cleaner.final_reshape]
         Clean --> PDF[make_pdf.create_pdf]
     end
-    
+
     ProcessingLoop -.->|Uses| AI[AIInterface]
     AI -.->|API Calls| Provider[OpenAI / Other Providers]
 ```
@@ -69,7 +69,7 @@ classDiagram
     class Main {
         +main()
     }
-    
+
     class Builder {
         +start(BookDict, dir)
         +build_binder(ner, analyzer, metadata, book)
@@ -84,7 +84,7 @@ classDiagram
         +_build_chapters()
         +add_binder()
     }
-    
+
     class Chapter {
         +int number
         +str text
@@ -93,14 +93,14 @@ classDiagram
         +add_names(names)
         +add_analysis(analysis)
     }
-    
+
     class AIInterface {
         +APIProvider provider
         +RateLimitManager limiter
         +generate()
         +call_api()
     }
-    
+
     class AIProviderManager {
         <<Abstract>>
         +get_provider()
@@ -116,25 +116,25 @@ classDiagram
     Main ..> Builder : invokes
     Builder ..> Book : creates & modifies
     Book *-- Chapter : contains
-    
+
     Builder ..> AIInterface : uses
-    
+
     AIInterface o-- RateLimitManager : uses
     AIInterface o-- AIProviderManager : via config
-    
+
     %% Logic Modules (Functional)
     class NameExtractor {
         <<Module>>
         +extract_names()
         +build_role_script()
     }
-    
+
     class NameAnalyzer {
         <<Module>>
         +analyze_names()
         +build_role_scripts()
     }
-    
+
     Builder ..> NameExtractor : calls
     Builder ..> NameAnalyzer : calls
 ```

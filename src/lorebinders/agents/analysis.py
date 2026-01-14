@@ -14,6 +14,14 @@ def _get_prompt_path() -> Path:
     return Path(__file__).parent.parent / "assets" / "prompts" / "analysis.txt"
 
 
+analysis_agent = Agent(
+    "openai:gpt-4o",
+    deps_type=AnalysisConfig,
+    output_type=AnalysisResult,
+)
+
+
+@analysis_agent.system_prompt
 def _system_prompt(ctx: RunContext[AnalysisConfig]) -> str:
     """Generate system prompt based on analysis configuration.
 
@@ -35,12 +43,7 @@ class UniversalAnalysisAgent:
 
     def __init__(self, model_name: str = "openai:gpt-4o"):
         """Initialize the analysis agent."""
-        self.agent = Agent(
-            model_name,
-            deps_type=AnalysisConfig,
-            result_type=AnalysisResult,
-            system_prompt=_system_prompt,
-        )
+        self.agent = analysis_agent
 
     def run_sync(self, text: str, config: AnalysisConfig) -> AnalysisResult:
         """Run the agent synchronously to analyze an entity.
@@ -49,4 +52,4 @@ class UniversalAnalysisAgent:
             The structured analysis result.
         """
         result = self.agent.run_sync(text, deps=config)
-        return result.data
+        return result.output

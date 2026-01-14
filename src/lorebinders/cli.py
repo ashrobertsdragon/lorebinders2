@@ -4,9 +4,12 @@ from typing import Annotated
 import typer
 from rich.console import Console
 
+from lorebinders.builder import LoreBinderBuilder
+from lorebinders.cli_adapters import AnalysisAdapter, ExtractionAdapter
 from lorebinders.core.models import NarratorConfig, RunConfiguration
 from lorebinders.ingestion.ingester import EbookIngester
 from lorebinders.ingestion.workspace import WorkspaceManager
+from lorebinders.reporting.pdf import ReportLabPDFReporter
 
 app = typer.Typer(no_args_is_help=True)
 console = Console()
@@ -72,17 +75,29 @@ def main(
     )
     console.print(f"Workspace ready: {workspace_path}")
 
+    console.print(f"Workspace ready: {workspace_path}")
+
     ingester = EbookIngester()
+    extractor = ExtractionAdapter(config)
+    analyzer = AnalysisAdapter(config)
+    reporter = ReportLabPDFReporter()
+
+    builder = LoreBinderBuilder(
+        ingestion=ingester,
+        extraction=extractor,
+        analysis=analyzer,
+        reporting=reporter,
+    )
+
     try:
-        book = ingester.ingest(
-            source=config.book_path, output_dir=workspace_path
-        )
+        console.print("[bold blue]Running Build Pipeline...[/bold blue]")
+        builder.run(config)
         console.print(
-            f"[bold green]Ingestion Complete![/bold green] "
-            f"Imported {len(book.chapters)} chapters."
+            "[bold green]Build Complete![/bold green] PDF Report generated."
         )
+
     except Exception as e:
-        console.print(f"[bold red]Ingestion Failed:[/bold red] {e}")
+        console.print(f"[bold red]Build Failed:[/bold red] {e}")
         raise typer.Exit(code=1)
 
 

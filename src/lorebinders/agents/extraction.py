@@ -16,6 +16,14 @@ def _get_prompt_path() -> Path:
     )
 
 
+extraction_agent = Agent(
+    "openai:gpt-4o",
+    deps_type=ExtractionConfig,
+    output_type=list[str],
+)
+
+
+@extraction_agent.system_prompt
 def _system_prompt(ctx: RunContext[ExtractionConfig]) -> str:
     """Generate system prompt based on extraction configuration.
 
@@ -55,13 +63,12 @@ class EntityExtractionAgent:
     """Agent for extracting entities of a specific category from text."""
 
     def __init__(self, model_name: str = "openai:gpt-4o"):
-        """Initialize the extraction agent."""
-        self.agent = Agent(
-            model_name,
-            deps_type=ExtractionConfig,
-            result_type=list[str],
-            system_prompt=_system_prompt,
-        )
+        """Initialize the extraction agent.
+
+        Note: model_name is currently ignored as we use the global agent.
+        In the future, we could configure the global agent or use a factory.
+        """
+        self.agent = extraction_agent
 
     def run_sync(self, text: str, config: ExtractionConfig) -> list[str]:
         """Run the agent synchronously to extract entities.
@@ -70,4 +77,4 @@ class EntityExtractionAgent:
              A list of extracted entity names/identifiers.
         """
         result = self.agent.run_sync(text, deps=config)
-        return result.data
+        return result.output

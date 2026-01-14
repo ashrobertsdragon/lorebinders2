@@ -1,0 +1,36 @@
+============================= test session starts ==============================
+platform linux -- Python 3.14.2, pytest-9.0.2, pluggy-1.6.0
+rootdir: /home/ashlynn/projects/ProsePal/lorebinders2
+configfile: pyproject.toml
+plugins: xdist-3.8.0, anyio-4.12.1, cov-7.0.0, logfire-4.18.0
+collected 0 items / 1 error
+
+==================================== ERRORS ====================================
+____________ ERROR collecting tests/e2e/test_ingestion_workflow.py _____________
+tests/e2e/test_ingestion_workflow.py:9: in <module>
+    from lorebinders.cli import app
+src/lorebinders/cli.py:8: in <module>
+    from lorebinders.cli_adapters import AnalysisAdapter, ExtractionAdapter
+src/lorebinders/cli_adapters.py:1: in <module>
+    from lorebinders.agents.analysis import UniversalAnalysisAgent
+src/lorebinders/agents/analysis.py:17: in <module>
+    analysis_agent = Agent(
+.venv/lib/python3.14/site-packages/pydantic_ai/agent/__init__.py:325: in __init__
+    self._model = models.infer_model(model)
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.14/site-packages/pydantic_ai/models/__init__.py:1106: in infer_model
+    provider = provider_factory(provider_name)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.14/site-packages/pydantic_ai/providers/__init__.py:177: in infer_provider
+    return provider_class()
+           ^^^^^^^^^^^^^^^^
+.venv/lib/python3.14/site-packages/pydantic_ai/providers/openai.py:85: in __init__
+    self._client = AsyncOpenAI(base_url=base_url, api_key=api_key, http_client=http_client)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.14/site-packages/openai/_client.py:488: in __init__
+    raise OpenAIError(
+E   openai.OpenAIError: The api_key client option must be set either by passing api_key to the client or by setting the OPENAI_API_KEY environment variable
+=========================== short test summary info ============================
+ERROR tests/e2e/test_ingestion_workflow.py - openai.OpenAIError: The api_key ...
+!!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!
+=============================== 1 error in 0.95s ===============================

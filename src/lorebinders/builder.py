@@ -1,5 +1,3 @@
-from pathlib import Path
-
 from lorebinders.core import models
 from lorebinders.core.interfaces import (
     AnalysisAgent,
@@ -7,6 +5,7 @@ from lorebinders.core.interfaces import (
     IngestionProvider,
     ReportingProvider,
 )
+from lorebinders.ingestion.workspace import WorkspaceManager
 
 
 class LoreBinderBuilder:
@@ -24,11 +23,13 @@ class LoreBinderBuilder:
         self.extraction = extraction
         self.analysis = analysis
         self.reporting = reporting
+        self.workspace_manager = WorkspaceManager()
 
     def run(self, config: models.RunConfiguration) -> None:
         """Execute the build pipeline."""
-        output_dir = Path("work") / config.author_name / config.book_title
-        output_dir.mkdir(parents=True, exist_ok=True)
+        output_dir = self.workspace_manager.ensure_workspace(
+            config.author_name, config.book_title
+        )
 
         book = self.ingestion.ingest(config.book_path, output_dir)
 
@@ -41,4 +42,4 @@ class LoreBinderBuilder:
                 profile = self.analysis.analyze(name, chapter)
                 all_profiles.append(profile)
 
-        self.reporting.generate(all_profiles, output_dir)
+        self.reporting.generate(all_profiles, output_dir / "series_bible.pdf")

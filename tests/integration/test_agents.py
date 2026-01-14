@@ -42,7 +42,7 @@ def test_agents_flow(mock_extraction_agent, mock_analysis_agent):
         "The world's only consulting detective was thinking."
     )
 
-    # 1. Extraction
+
     extractor = EntityExtractionAgent()
     ext_config = ExtractionConfig(
         target_category="Character",
@@ -53,7 +53,7 @@ def test_agents_flow(mock_extraction_agent, mock_analysis_agent):
     assert "Sherlock Holmes" in entities
     assert "Dr. Watson" in entities
 
-    # 2. Analysis
+
     analyzer = UniversalAnalysisAgent()
     analysis_config = AnalysisConfig(
         target_entity="Sherlock Holmes",
