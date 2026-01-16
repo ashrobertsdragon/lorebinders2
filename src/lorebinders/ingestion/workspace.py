@@ -26,8 +26,8 @@ class WorkspaceManager:
         Returns:
             The Path to the book's workspace directory.
         """
-        safe_author = self._sanitize_filename(author)
-        safe_title = self._sanitize_filename(title)
+        safe_author = self.sanitize_filename(author)
+        safe_title = self.sanitize_filename(title)
 
         path = self.base_path / safe_author / safe_title
         path.mkdir(parents=True, exist_ok=True)
@@ -40,14 +40,14 @@ class WorkspaceManager:
             author: The name of the author.
             title: The title of the book.
         """
-        safe_author = self._sanitize_filename(author)
-        safe_title = self._sanitize_filename(title)
+        safe_author = self.sanitize_filename(author)
+        safe_title = self.sanitize_filename(title)
 
         path = self.base_path / safe_author / safe_title
         if path.exists():
             shutil.rmtree(path)
 
-    def _sanitize_filename(self, name: str) -> str:
+    def sanitize_filename(self, name: str) -> str:
         """Sanitize a string to be safe for use as a filename.
 
         Replaces non-alphanumeric characters (except - and .) with underscores.

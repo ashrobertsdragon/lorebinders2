@@ -89,6 +89,7 @@ class LoreBinderBuilder:
 
         final_profiles = self._binder_to_profiles(refined_binder)
 
+        safe_title = self.workspace_manager.sanitize_filename(config.book_title)
         self.reporting.generate(
-            final_profiles, output_dir / f"{config.book_title}_story_bible.pdf"
+            final_profiles, output_dir / f"{safe_title}_story_bible.pdf"
         )
