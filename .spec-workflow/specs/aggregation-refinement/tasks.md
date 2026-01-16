@@ -40,7 +40,7 @@
     - _Requirements: Requirement 3 (Summarization)_
     - _Prompt: Implement the EntitySummarizer in `src/lorebinders/refinement/summarizer.py`. It should take a binder and an AIInterface, generate prompts for character summaries, and update the binder with the results. Follow TDD: Write tests in `tests/unit/refinement/test_summarizer.py` mocking the AIInterface to ensure correct prompt construction and response handling._
 
-- [ ] 5. Implement RefinementManager to orchestrate pipeline
+- [x] 5. Implement RefinementManager to orchestrate pipeline
     - File: src/lorebinders/refinement/manager.py
     - File: tests/unit/refinement/test_manager.py
     - Create a coordination class/function that runs clean -> resolve -> summarize.
