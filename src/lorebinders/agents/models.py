@@ -33,3 +33,18 @@ class AnalysisResult(BaseModel):
     entity_name: str
     category: str
     traits: list[TraitValue]
+
+
+class SummarizerConfig(BaseModel):
+    """Configuration for the entity summarization agent."""
+
+    entity_name: str
+    category: str
+    context_data: str
+
+
+class SummarizerResult(BaseModel):
+    """Result of entity summarization."""
+
+    entity_name: str
+    summary: str
