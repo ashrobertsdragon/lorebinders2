@@ -60,18 +60,11 @@ def _system_prompt(ctx: RunContext[ExtractionConfig]) -> str:
     )
 
 
-class EntityExtractionAgent:
-    """Agent for extracting entities of a specific category from text."""
+def run_extraction(text: str, config: ExtractionConfig) -> list[str]:
+    """Run the agent synchronously to extract entities.
 
-    def __init__(self):
-        """Initialize the extraction agent."""
-        self.agent = extraction_agent
-
-    def run_sync(self, text: str, config: ExtractionConfig) -> list[str]:
-        """Run the agent synchronously to extract entities.
-
-        Returns:
-             A list of extracted entity names/identifiers.
-        """
-        result = self.agent.run_sync(text, deps=config)
-        return result.output
+    Returns:
+         A list of extracted entity names/identifiers.
+    """
+    result = extraction_agent.run_sync(text, deps=config)
+    return result.output

@@ -3,8 +3,8 @@ import pytest
 from pydantic_ai.models.function import FunctionModel
 from pydantic_ai.messages import ModelMessage, ModelResponse, TextPart
 
-from lorebinders.agents.extraction import EntityExtractionAgent, extraction_agent
-from lorebinders.agents.analysis import UniversalAnalysisAgent, analysis_agent
+from lorebinders.agents.extraction import run_extraction, extraction_agent
+from lorebinders.agents.analysis import run_analysis, analysis_agent
 from lorebinders.agents.models import (
     ExtractionConfig,
     AnalysisConfig,
@@ -41,23 +41,21 @@ def test_agents_flow():
             "The world's only consulting detective was thinking."
         )
 
-        extractor = EntityExtractionAgent()
         ext_config = ExtractionConfig(
             target_category="Character",
             narrator=NarratorConfig(is_3rd_person=True)
         )
-        entities = extractor.run_sync(text_chunk, ext_config)
+        entities = run_extraction(text_chunk, ext_config)
 
         assert "Sherlock Holmes" in entities
         assert "Dr. Watson" in entities
 
-        analyzer = UniversalAnalysisAgent()
         analysis_config = AnalysisConfig(
             target_entity="Sherlock Holmes",
             category="Character",
             traits=["Role"]
         )
-        result = analyzer.run_sync(text_chunk, analysis_config)
+        result = run_analysis(text_chunk, analysis_config)
 
         assert result.entity_name == "Sherlock Holmes"
         assert result.traits[0].value == "Detective"

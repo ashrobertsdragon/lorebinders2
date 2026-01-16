@@ -1,16 +1,12 @@
+"""Interfaces and protocols for LoreBinders components."""
+
+from collections.abc import Callable
 from pathlib import Path
 from typing import Protocol, runtime_checkable
 
 from lorebinders.core import models
 
-
-@runtime_checkable
-class IngestionProvider(Protocol):
-    """Protocol for ingesting a book from a source file."""
-
-    def ingest(self, source: Path, output_dir: Path) -> models.Book:
-        """Ingest a book from source path and save/return the Book model."""
-        ...
+IngestionProvider = Callable[[Path, Path], models.Book]
 
 
 @runtime_checkable
@@ -33,12 +29,4 @@ class AnalysisAgent(Protocol):
         ...
 
 
-@runtime_checkable
-class ReportingProvider(Protocol):
-    """Protocol for generating reports."""
-
-    def generate(
-        self, data: list[models.CharacterProfile], output_path: Path
-    ) -> None:
-        """Generate a report (e.g. PDF) from character profiles."""
-        ...
+ReportingProvider = Callable[[list[models.CharacterProfile], Path], None]

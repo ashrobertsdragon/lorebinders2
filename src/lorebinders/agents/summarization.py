@@ -46,20 +46,13 @@ def _system_prompt(ctx: RunContext[SummarizerConfig]) -> str:
     )
 
 
-class EntitySummarizationAgent:
-    """Agent for summarizing entities based on aggregated data."""
+def run_summarization(config: SummarizerConfig) -> SummarizerResult:
+    """Run the agent synchronously to summarize an entity.
 
-    def __init__(self):
-        """Initialize the summarization agent."""
-        self.agent = summarization_agent
-
-    def run_sync(self, config: SummarizerConfig) -> SummarizerResult:
-        """Run the agent synchronously to summarize an entity.
-
-        Returns:
-            The structured summarization result.
-        """
-        result = self.agent.run_sync(
-            "Please summarize this entity.", deps=config
-        )
-        return result.output
+    Returns:
+        The structured summarization result.
+    """
+    result = summarization_agent.run_sync(
+        "Please summarize this entity.", deps=config
+    )
+    return result.output

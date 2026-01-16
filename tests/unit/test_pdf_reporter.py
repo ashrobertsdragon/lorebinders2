@@ -6,11 +6,7 @@ from unittest.mock import MagicMock
 
 import pytest
 from lorebinders.core.models import Book, CharacterProfile, Chapter
-from lorebinders.reporting.pdf import ReportLabPDFReporter
-
-@pytest.fixture
-def reporter():
-    return ReportLabPDFReporter()
+from lorebinders.reporting.pdf import generate_pdf_report
 
 @pytest.fixture
 def dummy_data():
@@ -26,10 +22,10 @@ def dummy_data():
     )
     return [profile]
 
-def test_generate_pdf_creates_file(reporter, dummy_data, tmp_path):
+def test_generate_pdf_creates_file(dummy_data, tmp_path):
     """Test that the PDF generation creates a valid file."""
     output_path = tmp_path / "report.pdf"
-    reporter.generate(dummy_data, output_path)
+    generate_pdf_report(dummy_data, output_path)
 
     assert output_path.exists()
     assert output_path.stat().st_size > 0

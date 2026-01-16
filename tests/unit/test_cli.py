@@ -22,13 +22,12 @@ def test_cli_input_parsing(tmp_path):
     p.write_text("content")
 
     with patch("lorebinders.cli.WorkspaceManager") as mock_ws_cls, \
-         patch("lorebinders.cli.EbookIngester") as mock_ingest_cls:
+         patch("lorebinders.cli.ingest") as mock_ingest:
 
         mock_ws = mock_ws_cls.return_value
         mock_ws.ensure_workspace.return_value = d / "workspace"
 
-        mock_ingester = mock_ingest_cls.return_value
-        mock_ingester.ingest.return_value = Book(title="Test", author="Test", chapters=[])
+        mock_ingest.return_value = Book(title="Test", author="Test", chapters=[])
 
         result = runner.invoke(
             app,

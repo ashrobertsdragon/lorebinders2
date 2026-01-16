@@ -7,9 +7,9 @@ from rich.console import Console
 from lorebinders.builder import LoreBinderBuilder
 from lorebinders.cli_adapters import AnalysisAdapter, ExtractionAdapter
 from lorebinders.core.models import NarratorConfig, RunConfiguration
-from lorebinders.ingestion.ingester import EbookIngester
+from lorebinders.ingestion.ingester import ingest
 from lorebinders.ingestion.workspace import WorkspaceManager
-from lorebinders.reporting.pdf import ReportLabPDFReporter
+from lorebinders.reporting.pdf import generate_pdf_report
 
 app = typer.Typer(no_args_is_help=True)
 console = Console()
@@ -75,18 +75,14 @@ def main(
     )
     console.print(f"Workspace ready: {workspace_path}")
 
-    console.print(f"Workspace ready: {workspace_path}")
-
-    ingester = EbookIngester()
     extractor = ExtractionAdapter(config)
     analyzer = AnalysisAdapter(config)
-    reporter = ReportLabPDFReporter()
 
     builder = LoreBinderBuilder(
-        ingestion=ingester,
+        ingestion=ingest,
         extraction=extractor,
         analysis=analyzer,
-        reporting=reporter,
+        reporting=generate_pdf_report,
     )
 
     try:

@@ -39,18 +39,11 @@ def _system_prompt(ctx: RunContext[AnalysisConfig]) -> str:
     return template.format(category=category, entity=entity, traits=traits)
 
 
-class UniversalAnalysisAgent:
-    """Agent for analyzing specific entities against user-defined schemas."""
+def run_analysis(text: str, config: AnalysisConfig) -> AnalysisResult:
+    """Run the agent synchronously to analyze an entity.
 
-    def __init__(self):
-        """Initialize the analysis agent."""
-        self.agent = analysis_agent
-
-    def run_sync(self, text: str, config: AnalysisConfig) -> AnalysisResult:
-        """Run the agent synchronously to analyze an entity.
-
-        Returns:
-            The structured analysis result.
-        """
-        result = self.agent.run_sync(text, deps=config)
-        return result.output
+    Returns:
+        The structured analysis result.
+    """
+    result = analysis_agent.run_sync(text, deps=config)
+    return result.output
