@@ -89,7 +89,14 @@ TITLES: set[str] = {
 
 
 def to_singular(plural: str) -> str:
-    """Convert a plural word to its singular form."""
+    """Convert a plural word to its singular form.
+
+    Args:
+        plural (str): The plural word to convert.
+
+    Returns:
+        str: The singular form of the word.
+    """
     if not plural:
         return ""
     lower_plural = plural.lower()
@@ -121,7 +128,14 @@ def to_singular(plural: str) -> str:
 
 
 def remove_titles(name: str) -> str:
-    """Remove titles from a name."""
+    """Remove titles from a name.
+
+    Args:
+        name (str): The name to remove titles from.
+
+    Returns:
+        str: The name with titles removed.
+    """
     if not name:
         return name
     name_split = name.split(" ")
@@ -132,7 +146,15 @@ def remove_titles(name: str) -> str:
 
 
 def _is_similar_key(key1: str, key2: str) -> bool:
-    """Determine if two keys are similar."""
+    """Determine if two keys are similar.
+
+    Args:
+        key1 (str): The first key to compare.
+        key2 (str): The second key to compare.
+
+    Returns:
+        bool: Whether the keys are similar.
+    """
     k1 = key1.strip().lower()
     k2 = key2.strip().lower()
 
@@ -180,7 +202,15 @@ def _is_similar_key(key1: str, key2: str) -> bool:
 
 
 def _merge_values(v1: Any, v2: Any) -> Any:
-    """Recursively merge values of unknown datatypes."""
+    """Recursively merge values of unknown datatypes.
+
+    Args:
+        v1 (Any): The first value to merge.
+        v2 (Any): The second value to merge.
+
+    Returns:
+        Any: The merged value.
+    """
     if isinstance(v1, dict) and isinstance(v2, dict):
         merged = v1.copy()
         for k, v in v2.items():
@@ -214,7 +244,15 @@ def _merge_values(v1: Any, v2: Any) -> Any:
 
 
 def _prioritize_keys(key1: str, key2: str) -> tuple[str, str]:
-    """Determine which key to keep and which to merge."""
+    """Determine which key to keep and which to merge.
+
+    Args:
+        key1 (str): The first key to compare.
+        key2 (str): The second key to compare.
+
+    Returns:
+        tuple[str, str]: The keys to keep and merge.
+    """
     l1, l2 = key1.lower(), key2.lower()
     if (l1 in l2 or l2 in l1) and l1 != l2:
         if l1 in TITLES:
@@ -228,7 +266,14 @@ def _prioritize_keys(key1: str, key2: str) -> tuple[str, str]:
 
 
 def resolve_binder(binder: dict[str, Any]) -> dict[str, Any]:
-    """Full resolution pipeline."""
+    """Full resolution pipeline.
+
+    Args:
+        binder (dict[str, Any]): The binder to resolve.
+
+    Returns:
+        dict[str, Any]: The resolved binder.
+    """
     resolved_binder: dict[str, Any] = {}
 
     for category, entities in binder.items():
