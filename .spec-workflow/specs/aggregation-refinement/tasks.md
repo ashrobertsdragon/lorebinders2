@@ -20,7 +20,7 @@
     - _Requirements: Requirement 2 (Data Cleaning & Robustness)_
     - _Prompt: Implement the EntityCleaner class/functions in `src/lorebinders/refinement/cleaner.py`. Port the cleaning logic (junk word removal, location standardization, narrator replacement) from v1's `data_cleaner.py`. Follow TDD: Write comprehensive tests in `tests/unit/refinement/test_cleaner.py` covering all regex patterns and edge cases first._
 
-- [ ] 3. Implement EntityResolver (TDD)
+- [x] 3. Implement EntityResolver (TDD)
     - File: src/lorebinders/refinement/resolver.py
     - File: tests/unit/refinement/test_resolver.py
     - Implement `resolve(binder)` function.
