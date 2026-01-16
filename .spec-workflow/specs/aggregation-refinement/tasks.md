@@ -30,7 +30,7 @@
     - _Requirements: Requirement 1 (Aggregation & Deduplication)_
     - _Prompt: Implement the EntityResolver in `src/lorebinders/refinement/resolver.py`. Port the deduplication and merging logic from v1. It needs to handle singular/plural matching and attribute merging. Follow TDD: Create tests in `tests/unit/refinement/test_resolver.py` that verify correct merging of complex dicts and lists._
 
-- [ ] 4. Implement EntitySummarizer (TDD)
+- [x] 4. Implement EntitySummarizer (TDD)
     - File: src/lorebinders/refinement/summarizer.py
     - File: tests/unit/refinement/test_summarizer.py
     - Implement `summarize(binder, ai)` function.
