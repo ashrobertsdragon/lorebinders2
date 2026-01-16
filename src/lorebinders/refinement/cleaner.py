@@ -219,7 +219,12 @@ class EntityCleaner:
                 elif category.lower() == "characters":
                     clean_name = self.remove_titles(name)
 
-                new_entities[clean_name] = details
+                if clean_name in new_entities:
+                    new_entities[clean_name] = self._merge_values(
+                        new_entities[clean_name], details
+                    )
+                else:
+                    new_entities[clean_name] = details
             final_binder[category] = new_entities
 
         return final_binder
