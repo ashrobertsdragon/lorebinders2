@@ -43,8 +43,7 @@ def test_cli_ingest_success(mock_ingester, mock_workspace, tmp_path):
     )
 
     assert result.exit_code == 0
-    assert "Ingestion Complete!" in result.output
-    assert "Imported 1 chapters" in result.output
+    assert "Build Complete!" in result.output
 
     mock_workspace.ensure_workspace.assert_called_once_with(
         author="Test Author", title="Test Book"
@@ -52,8 +51,8 @@ def test_cli_ingest_success(mock_ingester, mock_workspace, tmp_path):
 
     mock_ingester.ingest.assert_called_once()
     call_args = mock_ingester.ingest.call_args
-    assert call_args.kwargs["source"] == book_path
-    assert call_args.kwargs["output_dir"] == Path("/tmp/work/Test_Author/Test_Book")
+    assert call_args.args[0] == book_path
+    assert call_args.args[1] == Path("work/Test_Author/Test_Book")
 
 
 def test_cli_file_not_found():

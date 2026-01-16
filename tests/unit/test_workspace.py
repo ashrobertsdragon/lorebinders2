@@ -55,7 +55,7 @@ def test_ensure_workspace_idempotent(manager):
 def test_sanitize_filename(manager):
     """Test internal filename sanitization."""
 
-    assert manager._sanitize_filename("Normal") == "Normal"
-    assert manager._sanitize_filename("Space Valid") == "Space_Valid"
-    assert manager._sanitize_filename("Bad/Chars\\Here") == "Bad_Chars_Here"
-    assert manager._sanitize_filename("..") == "_"
+    assert manager.sanitize_filename("Normal") == "Normal"
+    assert manager.sanitize_filename("Space Valid") == "Space_Valid"
+    assert manager.sanitize_filename("Bad/Chars\\Here") == "Bad_Chars_Here"
+    assert manager.sanitize_filename("..") == "_"
