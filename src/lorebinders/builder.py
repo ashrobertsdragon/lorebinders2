@@ -1,3 +1,5 @@
+from typing import Any
+
 from lorebinders.core import models
 from lorebinders.core.interfaces import (
     AnalysisAgent,
@@ -6,6 +8,7 @@ from lorebinders.core.interfaces import (
     ReportingProvider,
 )
 from lorebinders.ingestion.workspace import WorkspaceManager
+from lorebinders.refinement.manager import RefinementManager
 
 
 class LoreBinderBuilder:
@@ -24,6 +27,39 @@ class LoreBinderBuilder:
         self.analysis = analysis
         self.reporting = reporting
         self.workspace_manager = WorkspaceManager()
+        self.refinement_manager = RefinementManager()
+
+    def _profiles_to_binder(
+        self, profiles: list[models.CharacterProfile]
+    ) -> dict[str, Any]:
+        """Convert list of profiles to binder dict format."""
+        binder: dict[str, dict[str, Any]] = {"Characters": {}}
+
+        for p in profiles:
+            if p.name not in binder["Characters"]:
+                binder["Characters"][p.name] = p.traits
+            else:
+                current = binder["Characters"][p.name]
+
+                if isinstance(current, dict) and isinstance(p.traits, dict):
+                    binder["Characters"][p.name].update(p.traits)
+
+        return binder
+
+    def _binder_to_profiles(
+        self, binder: dict[str, Any]
+    ) -> list[models.CharacterProfile]:
+        """Convert binder dict format back to list of profiles."""
+        profiles = []
+        if "Characters" in binder and isinstance(binder["Characters"], dict):
+            for name, data in binder["Characters"].items():
+                if isinstance(data, dict):
+                    profiles.append(
+                        models.CharacterProfile(
+                            name=name, traits=data, confidence_score=1.0
+                        )
+                    )
+        return profiles
 
     def run(self, config: models.RunConfiguration) -> None:
         """Execute the build pipeline."""
@@ -42,6 +78,17 @@ class LoreBinderBuilder:
                 profile = self.analysis.analyze(name, chapter)
                 all_profiles.append(profile)
 
+        raw_binder = self._profiles_to_binder(all_profiles)
+
+        narrator_name = (
+            config.narrator_config.name if config.narrator_config else None
+        )
+        refined_binder = self.refinement_manager.process(
+            raw_binder, narrator_name
+        )
+
+        final_profiles = self._binder_to_profiles(refined_binder)
+
         self.reporting.generate(
-            all_profiles, output_dir / f"{config.book_title}_story_bible.pdf"
+            final_profiles, output_dir / f"{config.book_title}_story_bible.pdf"
         )

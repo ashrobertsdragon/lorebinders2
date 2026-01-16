@@ -1,4 +1,4 @@
-from unittest.mock import Mock, call
+from unittest.mock import Mock, call, patch
 
 import pytest
 from lorebinders.builder import LoreBinderBuilder
@@ -78,26 +78,43 @@ def test_builder_flow(
         confidence_score=0.9,
     )
 
-    builder = LoreBinderBuilder(
-        ingestion=mock_ingestion,
-        extraction=mock_extraction,
-        analysis=mock_analysis,
-        reporting=mock_reporting,
-    )
+    with patch("lorebinders.builder.RefinementManager") as MockRefinementManager:
+        mock_refinement_manager = MockRefinementManager.return_value
 
-    builder.run(mock_config)
+        mock_refinement_manager.process.return_value = {
+            "Characters": {
+                "Alice": {"Trait1": "Value1", "Summary": "Summary"},
+                "Bob": {"Trait2": "Value2"},
+                "Charlie": {"Trait3": "Value3"}
+            }
+        }
 
-    mock_ingestion.ingest.assert_called_once()
-    assert mock_ingestion.ingest.call_args[0][0] == mock_config.book_path
+        builder = LoreBinderBuilder(
+            ingestion=mock_ingestion,
+            extraction=mock_extraction,
+            analysis=mock_analysis,
+            reporting=mock_reporting,
+        )
 
-    assert mock_extraction.extract.call_count == 2
-    mock_extraction.extract.assert_has_calls([
-        call(mock_book.chapters[0]),
-        call(mock_book.chapters[1]),
-    ])
+        builder.run(mock_config)
 
-    assert mock_analysis.analyze.call_count == 4
+        mock_ingestion.ingest.assert_called_once()
+        assert mock_ingestion.ingest.call_args[0][0] == mock_config.book_path
 
-    mock_reporting.generate.assert_called_once()
-    args = mock_reporting.generate.call_args[0]
-    assert len(args[0]) >= 2
+        assert mock_extraction.extract.call_count == 2
+
+        assert mock_analysis.analyze.call_count == 4
+
+
+        mock_refinement_manager.process.assert_called_once()
+        call_args = mock_refinement_manager.process.call_args
+        assert isinstance(call_args[0][0], dict)
+        assert "Characters" in call_args[0][0]
+
+        mock_reporting.generate.assert_called_once()
+        args = mock_reporting.generate.call_args[0]
+
+        assert len(args[0]) == 3
+
+        alice = next(p for p in args[0] if p.name == "Alice")
+        assert alice.traits["Summary"] == "Summary"

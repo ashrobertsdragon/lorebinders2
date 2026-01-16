@@ -48,8 +48,8 @@
     - _Requirements: Non-Functional (Code Architecture)_
     - _Prompt: Create a RefinementManager (or main entry function) that orchestrates the `clean`, `resolve`, and `summarize` steps in order. Ensure it passes data correctly between steps. Test the flow in `tests/unit/refinement/test_manager.py`._
 
-- [ ] 6. Integrate into LoreBinderBuilder
-    - File: src/lorebinders/build_lorebinder.py
+- [x] 6. Integrate into LoreBinderBuilder
+    - File: src/lorebinders/builder.py
     - Inject the refinement step after the processing loop and before PDF generation.
     - Purpose: Enable the feature in the main application flow.
     - _Requirements: Integration_
