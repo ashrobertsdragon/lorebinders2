@@ -8,7 +8,7 @@
     - _Requirements: Code Architecture_
     - _Prompt: Create the refinement package directory and an empty __init__.py to establish the new module namespace._
 
-- [ ] 2. Implement EntityCleaner (TDD)
+- [x] 2. Implement EntityCleaner (TDD)
     - File: src/lorebinders/refinement/cleaner.py
     - File: tests/unit/refinement/test_cleaner.py
     - Implement `clean(binder, narrator_name)` function.
