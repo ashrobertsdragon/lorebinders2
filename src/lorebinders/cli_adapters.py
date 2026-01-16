@@ -1,17 +1,16 @@
-from lorebinders.agents.analysis import UniversalAnalysisAgent
-from lorebinders.agents.extraction import EntityExtractionAgent
+from lorebinders.agents.analysis import run_analysis
+from lorebinders.agents.extraction import run_extraction
 from lorebinders.agents.models import AnalysisConfig, ExtractionConfig
 from lorebinders.core import models
 from lorebinders.core.interfaces import AnalysisAgent, ExtractionAgent
 
 
 class ExtractionAdapter(ExtractionAgent):
-    """Adapter for EntityExtractionAgent to match ExtractionAgent protocol."""
+    """Adapter for run_extraction to match ExtractionAgent protocol."""
 
     def __init__(self, config: models.RunConfiguration):
         """Initialize with run configuration."""
         self.config = config
-        self.agent = EntityExtractionAgent()
 
     def extract(self, chapter: models.Chapter) -> list[str]:
         """Extract entities from chapter content.
@@ -27,16 +26,15 @@ class ExtractionAdapter(ExtractionAgent):
             target_category=category,
             narrator=self.config.narrator_config,
         )
-        return self.agent.run_sync(chapter.content, ext_config)
+        return run_extraction(chapter.content, ext_config)
 
 
 class AnalysisAdapter(AnalysisAgent):
-    """Adapter for UniversalAnalysisAgent to match AnalysisAgent protocol."""
+    """Adapter for run_analysis to match AnalysisAgent protocol."""
 
     def __init__(self, config: models.RunConfiguration):
         """Initialize with run configuration."""
         self.config = config
-        self.agent = UniversalAnalysisAgent()
 
     def analyze(
         self, name: str, context: models.Chapter
@@ -61,7 +59,7 @@ class AnalysisAdapter(AnalysisAgent):
             category=category,
             traits=traits,
         )
-        result = self.agent.run_sync(context.content, ana_config)
+        result = run_analysis(context.content, ana_config)
 
         profile_traits = {t.trait: t.value for t in result.traits}
 

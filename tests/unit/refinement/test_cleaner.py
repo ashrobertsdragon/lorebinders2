@@ -1,19 +1,15 @@
 import pytest
-from lorebinders.refinement.cleaner import EntityCleaner
+from lorebinders.refinement.cleaner import remove_titles, clean_none_found, replace_narrator, clean_binder
 
-@pytest.fixture
-def cleaner():
-    return EntityCleaner()
-
-def test_remove_titles(cleaner):
-    assert cleaner.remove_titles("Captain John Smith") == "John Smith"
-    assert cleaner.remove_titles("Dr. Watson") == "Watson"
-    assert cleaner.remove_titles("The Kitchen") == "Kitchen"
-    assert cleaner.remove_titles("John Smith") == "John Smith"
-    assert cleaner.remove_titles("Captain") == "Captain"
+def test_remove_titles():
+    assert remove_titles("Captain John Smith") == "John Smith"
+    assert remove_titles("Dr. Watson") == "Watson"
+    assert remove_titles("The Kitchen") == "Kitchen"
+    assert remove_titles("John Smith") == "John Smith"
+    assert remove_titles("Captain") == "Captain"
 
 
-def test_clean_none_found(cleaner):
+def test_clean_none_found():
     data = {
         "Characters": {
             "John": {
@@ -34,12 +30,12 @@ def test_clean_none_found(cleaner):
     }
 
 
-    cleaned = cleaner.clean_none_found(data)
+    cleaned = clean_none_found(data)
     assert "Hair" not in cleaned["Characters"]["John"]
     assert cleaned["Characters"]["John"]["Traits"] == ["Brave"]
     assert "None found" not in cleaned["Characters"]
 
-def test_replace_narrator(cleaner):
+def test_replace_narrator():
     data = {
         "Characters": {
             "I": {"Description": "The narrator is tall."},
@@ -48,7 +44,7 @@ def test_replace_narrator(cleaner):
         }
     }
     narrator_name = "Jane Doe"
-    cleaned = cleaner.replace_narrator(data, narrator_name)
+    cleaned = replace_narrator(data, narrator_name)
 
     assert "Jane Doe" in cleaned["Characters"]
     assert "I" not in cleaned["Characters"]
@@ -57,7 +53,7 @@ def test_replace_narrator(cleaner):
     assert cleaned["Characters"]["Jane Doe"]["Action"] == "Jane Doe went home."
     assert cleaned["Characters"]["John"]["Opinion of Jane Doe"] == "He is strange."
 
-def test_standardize_locations(cleaner):
+def test_standardize_locations():
     data = {
         "Settings": {
             "Kitchen (Interior)": "Hot",
@@ -67,7 +63,7 @@ def test_standardize_locations(cleaner):
 
 
 
-    cleaned = cleaner.clean(data, None)
+    cleaned = clean_binder(data, None)
 
 
 

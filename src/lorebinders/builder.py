@@ -8,7 +8,7 @@ from lorebinders.core.interfaces import (
     ReportingProvider,
 )
 from lorebinders.ingestion.workspace import WorkspaceManager
-from lorebinders.refinement.manager import RefinementManager
+from lorebinders.refinement.manager import refine_binder
 
 
 class LoreBinderBuilder:
@@ -27,7 +27,6 @@ class LoreBinderBuilder:
         self.analysis = analysis
         self.reporting = reporting
         self.workspace_manager = WorkspaceManager()
-        self.refinement_manager = RefinementManager()
 
     def _profiles_to_binder(
         self, profiles: list[models.CharacterProfile]
@@ -67,7 +66,7 @@ class LoreBinderBuilder:
             config.author_name, config.book_title
         )
 
-        book = self.ingestion.ingest(config.book_path, output_dir)
+        book = self.ingestion(config.book_path, output_dir)
 
         all_profiles: list[models.CharacterProfile] = []
 
@@ -83,13 +82,11 @@ class LoreBinderBuilder:
         narrator_name = (
             config.narrator_config.name if config.narrator_config else None
         )
-        refined_binder = self.refinement_manager.process(
-            raw_binder, narrator_name
-        )
+        refined_binder = refine_binder(raw_binder, narrator_name)
 
         final_profiles = self._binder_to_profiles(refined_binder)
 
         safe_title = self.workspace_manager.sanitize_filename(config.book_title)
-        self.reporting.generate(
+        self.reporting(
             final_profiles, output_dir / f"{safe_title}_story_bible.pdf"
         )

@@ -1,49 +1,51 @@
+import json
 import pytest
-from unittest.mock import MagicMock, patch
-from lorebinders.refinement.manager import RefinementManager
-from lorebinders.refinement.cleaner import EntityCleaner
-from lorebinders.refinement.resolver import EntityResolver
-from lorebinders.refinement.summarizer import EntitySummarizer
+from pydantic_ai.models.function import FunctionModel
+from pydantic_ai.messages import ModelResponse, TextPart
+from lorebinders.refinement.manager import refine_binder
+from lorebinders.agents.summarization import summarization_agent
 
-@pytest.fixture
-def mock_cleaner():
-    with patch("lorebinders.refinement.manager.EntityCleaner") as mock:
-        instance = mock.return_value
-        instance.clean.return_value = {"cleaned": True}
-        yield instance
+def test_refinement_manager_integration():
+    """Test refine_binder using real components."""
 
-@pytest.fixture
-def mock_resolver():
-    with patch("lorebinders.refinement.manager.EntityResolver") as mock:
-        instance = mock.return_value
-        instance.resolve.return_value = {"resolved": True}
-        yield instance
+    expected_summary = "A legendary wizard."
+    expected_result_dict = {
+        "entity_name": "Gandalf",
+        "summary": expected_summary
+    }
 
-@pytest.fixture
-def mock_summarizer():
-    with patch("lorebinders.refinement.manager.EntitySummarizer") as mock:
-        instance = mock.return_value
-        instance.summarize.return_value = {"summarized": True}
-        yield instance
+    async def mock_model_call(messages, info) -> ModelResponse:
+        return ModelResponse(parts=[TextPart(content=json.dumps(expected_result_dict))])
 
-def test_refinement_manager_pipeline(mock_cleaner, mock_resolver, mock_summarizer):
-    """Test that RefinementManager orchestrates the steps in the correct order."""
-    manager = RefinementManager()
-
-    raw_binder = {"raw": "data"}
-    narrator_name = "Jane"
-
-    result = manager.process(raw_binder, narrator_name)
+    with summarization_agent.override(model=FunctionModel(mock_model_call)):
+        raw_binder = {
+            "Characters": {
+                "Captain Gandalf": {"Traits": ["Tall"], "Eyes": "Blue"},
+                "Gandalf": {"Traits": ["Wizard"], "Hair": "Grey"}
+            },
+            "Settings": {
+                "The Shire (Exterior)": {"Climate": "Mild"}
+            }
+        }
 
 
-    mock_cleaner.clean.assert_called_once_with(raw_binder, narrator_name)
-    mock_resolver.resolve.assert_called_once_with({"cleaned": True})
-    mock_summarizer.summarize.assert_called_once_with({"resolved": True})
-
-    assert result == {"summarized": True}
-
-def test_refinement_manager_pipeline_no_summary(mock_cleaner, mock_resolver, mock_summarizer):
-    """Test that RefinementManager can skip summarization if configured (optional)."""
 
 
-    pass
+
+        result = refine_binder(raw_binder, narrator_name=None)
+
+
+        assert "Gandalf" in result["Characters"]
+        assert "Captain Gandalf" not in result["Characters"]
+
+
+        assert "The Shire" in result["Settings"]
+        assert "The Shire (Exterior)" not in result["Settings"]
+
+
+        gandalf = result["Characters"]["Gandalf"]
+        assert "Tall" in gandalf["Traits"]
+        assert "Wizard" in gandalf["Traits"]
+
+
+        assert gandalf["Summary"] == expected_summary

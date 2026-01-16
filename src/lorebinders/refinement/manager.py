@@ -2,40 +2,30 @@
 
 from typing import Any
 
-from lorebinders.refinement.cleaner import EntityCleaner
-from lorebinders.refinement.resolver import EntityResolver
-from lorebinders.refinement.summarizer import EntitySummarizer
+from lorebinders.refinement.cleaner import clean_binder
+from lorebinders.refinement.resolver import resolve_binder
+from lorebinders.refinement.summarizer import summarize_binder
 
 
-class RefinementManager:
-    """Orchestrates the entity refinement pipeline.
+def refine_binder(
+    binder: dict[str, Any], narrator_name: str | None = None
+) -> dict[str, Any]:
+    """Execute the full refinement pipeline.
 
     Flow: Clean -> Resolve -> Summarize.
+
+    Args:
+        binder: The raw binder data from extraction.
+        narrator_name: Optional name of the narrator to replace
+            placeholders.
+
+    Returns:
+        The fully refined and summarized binder.
     """
+    cleaned_binder = clean_binder(binder, narrator_name)
 
-    def __init__(self):
-        """Initialize the manager with pipeline components."""
-        self.cleaner = EntityCleaner()
-        self.resolver = EntityResolver()
-        self.summarizer = EntitySummarizer()
+    resolved_binder = resolve_binder(cleaned_binder)
 
-    def process(
-        self, binder: dict[str, Any], narrator_name: str | None = None
-    ) -> dict[str, Any]:
-        """Execute the full refinement pipeline.
+    final_binder = summarize_binder(resolved_binder)
 
-        Args:
-            binder: The raw binder data from extraction.
-            narrator_name: Optional name of the narrator to replace
-                placeholders.
-
-        Returns:
-            The fully refined and summarized binder.
-        """
-        cleaned_binder = self.cleaner.clean(binder, narrator_name)
-
-        resolved_binder = self.resolver.resolve(cleaned_binder)
-
-        final_binder = self.summarizer.summarize(resolved_binder)
-
-        return final_binder
+    return final_binder

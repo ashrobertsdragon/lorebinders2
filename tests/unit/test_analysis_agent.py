@@ -3,7 +3,7 @@ import pytest
 from pydantic_ai.models.function import FunctionModel
 from pydantic_ai.messages import ModelMessage, ModelRequest, ModelResponse, SystemPromptPart, TextPart
 
-from lorebinders.agents.analysis import UniversalAnalysisAgent, analysis_agent
+from lorebinders.agents.analysis import run_analysis, analysis_agent
 from lorebinders.agents.models import AnalysisConfig, AnalysisResult, TraitValue
 
 def test_analysis_agent_run_sync_and_prompt():
@@ -35,7 +35,6 @@ def test_analysis_agent_run_sync_and_prompt():
         return ModelResponse(parts=[TextPart(content=json.dumps(expected_result_dict))])
 
     with analysis_agent.override(model=FunctionModel(mock_model_call)):
-        agent = UniversalAnalysisAgent()
         config = AnalysisConfig(
             target_entity="Gandalf",
             category="Character",
@@ -43,7 +42,7 @@ def test_analysis_agent_run_sync_and_prompt():
         )
         text = "Gandalf the Wizard came from Valinor."
 
-        result = agent.run_sync(text, config)
+        result = run_analysis(text, config)
 
         assert result == expected_result_obj
 

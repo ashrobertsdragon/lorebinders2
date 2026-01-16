@@ -2,12 +2,6 @@ from unittest.mock import Mock, call, patch
 
 import pytest
 from lorebinders.builder import LoreBinderBuilder
-from lorebinders.core.interfaces import (
-    AnalysisAgent,
-    ExtractionAgent,
-    IngestionProvider,
-    ReportingProvider,
-)
 from lorebinders.core.models import (
     Book,
     Chapter,
@@ -19,22 +13,22 @@ from lorebinders.core.models import (
 
 @pytest.fixture
 def mock_ingestion():
-    return Mock(spec=IngestionProvider)
+    return Mock()
 
 
 @pytest.fixture
 def mock_extraction():
-    return Mock(spec=ExtractionAgent)
+    return Mock()
 
 
 @pytest.fixture
 def mock_analysis():
-    return Mock(spec=AnalysisAgent)
+    return Mock()
 
 
 @pytest.fixture
 def mock_reporting():
-    return Mock(spec=ReportingProvider)
+    return Mock()
 
 
 @pytest.fixture
@@ -65,7 +59,7 @@ def test_builder_flow(
             Chapter(number=2, title="Ch 2", content="Chapter 2 content"),
         ],
     )
-    mock_ingestion.ingest.return_value = mock_book
+    mock_ingestion.return_value = mock_book
 
     mock_extraction.extract.side_effect = [
         ["Alice", "Bob"],
@@ -78,10 +72,8 @@ def test_builder_flow(
         confidence_score=0.9,
     )
 
-    with patch("lorebinders.builder.RefinementManager") as MockRefinementManager:
-        mock_refinement_manager = MockRefinementManager.return_value
-
-        mock_refinement_manager.process.return_value = {
+    with patch("lorebinders.builder.refine_binder") as mock_refine_binder:
+        mock_refine_binder.return_value = {
             "Characters": {
                 "Alice": {"Trait1": "Value1", "Summary": "Summary"},
                 "Bob": {"Trait2": "Value2"},
@@ -98,21 +90,21 @@ def test_builder_flow(
 
         builder.run(mock_config)
 
-        mock_ingestion.ingest.assert_called_once()
-        assert mock_ingestion.ingest.call_args[0][0] == mock_config.book_path
+        mock_ingestion.assert_called_once()
+        assert mock_ingestion.call_args[0][0] == mock_config.book_path
 
         assert mock_extraction.extract.call_count == 2
 
         assert mock_analysis.analyze.call_count == 4
 
 
-        mock_refinement_manager.process.assert_called_once()
-        call_args = mock_refinement_manager.process.call_args
+        mock_refine_binder.assert_called_once()
+        call_args = mock_refine_binder.call_args
         assert isinstance(call_args[0][0], dict)
         assert "Characters" in call_args[0][0]
 
-        mock_reporting.generate.assert_called_once()
-        args = mock_reporting.generate.call_args[0]
+        mock_reporting.assert_called_once()
+        args = mock_reporting.call_args[0]
 
         assert len(args[0]) == 3
 

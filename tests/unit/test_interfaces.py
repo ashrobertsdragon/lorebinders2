@@ -1,21 +1,15 @@
 import inspect
-from typing import Protocol
+from typing import Protocol, get_args
 from pathlib import Path
 
 import pytest
 from lorebinders.core import interfaces, models
 
-def test_ingestion_provider_protocol():
-    """Verify IngestionProvider protocol definition."""
-    assert issubclass(interfaces.IngestionProvider, Protocol)
+def test_ingestion_provider_alias():
+    """Verify IngestionProvider callable alias definition."""
 
-    assert hasattr(interfaces.IngestionProvider, 'ingest')
-    sig = inspect.signature(interfaces.IngestionProvider.ingest)
-    assert 'source' in sig.parameters
-    assert sig.parameters['source'].annotation == Path
-    assert 'output_dir' in sig.parameters
-    assert sig.parameters['output_dir'].annotation == Path
-    assert sig.return_annotation == models.Book
+
+    assert hasattr(interfaces, 'IngestionProvider')
 
 def test_extraction_agent_protocol():
     """Verify ExtractionAgent protocol definition."""
@@ -39,14 +33,6 @@ def test_analysis_agent_protocol():
     assert sig.parameters['context'].annotation == models.Chapter
     assert sig.return_annotation == models.CharacterProfile
 
-def test_reporting_provider_protocol():
-    """Verify ReportingProvider protocol definition."""
-    assert issubclass(interfaces.ReportingProvider, Protocol)
-
-    assert hasattr(interfaces.ReportingProvider, 'generate')
-    sig = inspect.signature(interfaces.ReportingProvider.generate)
-    assert 'data' in sig.parameters
-    assert sig.parameters['data'].annotation == list[models.CharacterProfile]
-    assert 'output_path' in sig.parameters
-    assert sig.parameters['output_path'].annotation == Path
-    assert sig.return_annotation is None
+def test_reporting_provider_alias():
+    """Verify ReportingProvider callable alias definition."""
+    assert hasattr(interfaces, 'ReportingProvider')

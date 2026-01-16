@@ -12,23 +12,23 @@ runner = CliRunner()
 
 @pytest.fixture
 def mock_ingester():
-    """Mock the EbookIngester class."""
-    with patch("lorebinders.cli.EbookIngester") as mock:
-        instance = mock.return_value
-        instance.ingest.return_value = Book(
+    """Mock the ingest function."""
+    with patch("lorebinders.cli.ingest") as mock:
+        mock.return_value = Book(
             title="Test Book",
             author="Test Author",
             chapters=[Chapter(number=1, title="Ch1", content="Content")],
         )
-        yield instance
+        yield mock
 
 
 @pytest.fixture
 def mock_workspace():
     """Mock the WorkspaceManager class."""
+    workspace_path = Path("work/Test_Author/Test_Book")
     with patch("lorebinders.cli.WorkspaceManager") as mock:
         instance = mock.return_value
-        instance.ensure_workspace.return_value = Path("/tmp/work/Test_Author/Test_Book")
+        instance.ensure_workspace.return_value = workspace_path
         yield instance
 
 
@@ -49,10 +49,10 @@ def test_cli_ingest_success(mock_ingester, mock_workspace, tmp_path):
         author="Test Author", title="Test Book"
     )
 
-    mock_ingester.ingest.assert_called_once()
-    call_args = mock_ingester.ingest.call_args
+    mock_ingester.assert_called_once()
+    call_args = mock_ingester.call_args
     assert call_args.args[0] == book_path
-    assert call_args.args[1] == Path("work/Test_Author/Test_Book")
+    assert call_args.args[1] == mock_workspace.ensure_workspace.return_value
 
 
 def test_cli_file_not_found():

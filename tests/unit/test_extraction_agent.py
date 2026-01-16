@@ -2,7 +2,7 @@ import json
 import pytest
 from pydantic_ai.models.function import FunctionModel
 from pydantic_ai.messages import ModelMessage, ModelResponse, TextPart
-from lorebinders.agents.extraction import EntityExtractionAgent, extraction_agent
+from lorebinders.agents.extraction import run_extraction, extraction_agent
 from lorebinders.agents.models import ExtractionConfig
 from lorebinders.core.models import NarratorConfig
 
@@ -14,14 +14,9 @@ def test_extraction_agent_run_sync_and_prompt():
     async def mock_model_call(messages: list[ModelMessage], info) -> ModelResponse:
         nonlocal captured_messages
         captured_messages = messages
-
-
-
-
         return ModelResponse(parts=[TextPart(content=json.dumps({"response": ["Hero", "Villain"]}))])
 
     with extraction_agent.override(model=FunctionModel(mock_model_call)):
-        agent = EntityExtractionAgent()
         config = ExtractionConfig(
             target_category="Characters",
             description="Main characters",
@@ -29,7 +24,7 @@ def test_extraction_agent_run_sync_and_prompt():
         )
         text = "The Hero fought the Villain."
 
-        result = agent.run_sync(text, config)
+        result = run_extraction(text, config)
 
         assert result == ["Hero", "Villain"]
 
