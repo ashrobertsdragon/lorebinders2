@@ -8,7 +8,14 @@ from lorebinders.agents.summarization import run_summarization
 
 
 def _format_context(data: Any) -> str:
-    """Format the entity data into a readable string for the AI."""
+    """Format the entity data into a readable string for the AI.
+
+    Args:
+        data (Any): The data to format.
+
+    Returns:
+        str: The formatted data.
+    """
     if isinstance(data, dict):
         return json.dumps(data, indent=2)
     return str(data)

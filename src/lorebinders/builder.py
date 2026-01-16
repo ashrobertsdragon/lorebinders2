@@ -31,7 +31,14 @@ class LoreBinderBuilder:
     def _profiles_to_binder(
         self, profiles: list[models.CharacterProfile]
     ) -> dict[str, Any]:
-        """Convert list of profiles to binder dict format."""
+        """Convert list of profiles to binder dict format.
+
+        Args:
+            profiles (list[models.CharacterProfile]): The profiles to convert.
+
+        Returns:
+            dict[str, Any]: The binder dict format.
+        """
         binder: dict[str, dict[str, Any]] = {"Characters": {}}
 
         for p in profiles:
@@ -48,7 +55,14 @@ class LoreBinderBuilder:
     def _binder_to_profiles(
         self, binder: dict[str, Any]
     ) -> list[models.CharacterProfile]:
-        """Convert binder dict format back to list of profiles."""
+        """Convert binder dict format back to list of profiles.
+
+        Args:
+            binder (dict[str, Any]): The binder dict format.
+
+        Returns:
+            list[models.CharacterProfile]: The list of profiles.
+        """
         profiles = []
         if "Characters" in binder and isinstance(binder["Characters"], dict):
             for name, data in binder["Characters"].items():

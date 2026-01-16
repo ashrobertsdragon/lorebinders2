@@ -96,7 +96,14 @@ LOCATION_SUFFIX_PATTERN = re.compile(r"\s*[\(\-].*", re.IGNORECASE)
 
 
 def remove_titles(name: str) -> str:
-    """Remove titles from a name."""
+    """Remove titles from a name.
+
+    Args:
+        name (str): The name to remove titles from.
+
+    Returns:
+        str: The name with titles removed.
+    """
     if not name:
         return name
     name_split = name.split(" ")
@@ -107,14 +114,28 @@ def remove_titles(name: str) -> str:
 
 
 def clean_str(text: str) -> str:
-    """Clean 'none found' from strings."""
+    """Clean 'none found' from strings.
+
+    Args:
+        text (str): The text to clean.
+
+    Returns:
+        str: The cleaned text.
+    """
     if text.lower().strip() == "none found":
         return ""
     return text
 
 
 def clean_list(items: list[Any]) -> list[Any]:
-    """Recursively clean items in a list."""
+    """Recursively clean items in a list.
+
+    Args:
+        items (list[Any]): The list to clean.
+
+    Returns:
+        list[Any]: The cleaned list.
+    """
     cleaned: list[Any] = []
     for item in items:
         if isinstance(item, str):
@@ -133,7 +154,14 @@ def clean_list(items: list[Any]) -> list[Any]:
 
 
 def clean_none_found(data: dict[str, Any]) -> dict[str, Any]:
-    """Recursively remove 'none found' values from a dictionary."""
+    """Recursively remove 'none found' values from a dictionary.
+
+    Args:
+        data (dict[str, Any]): The dictionary to clean.
+
+    Returns:
+        dict[str, Any]: The cleaned dictionary.
+    """
     cleaned: dict[str, Any] = {}
     for key, value in data.items():
         if key.lower().strip() == "none found":
@@ -155,7 +183,15 @@ def clean_none_found(data: dict[str, Any]) -> dict[str, Any]:
 
 
 def _merge_values(v1: Any, v2: Any) -> Any:
-    """Helper to merge values when keys collide during replacement."""
+    """Helper to merge values when keys collide during replacement.
+
+    Args:
+        v1 (Any): The first value.
+        v2 (Any): The second value.
+
+    Returns:
+        Any: The merged value.
+    """
     if isinstance(v1, dict) and isinstance(v2, dict):
         merged = v1.copy()
         for k, v in v2.items():
@@ -176,7 +212,15 @@ def _merge_values(v1: Any, v2: Any) -> Any:
 
 
 def replace_narrator(data: Any, narrator_name: str | None) -> Any:
-    """Replace narrator references with a name."""
+    """Replace narrator references with a name.
+
+    Args:
+        data (Any): The data to replace narrator references in.
+        narrator_name (str | None): The name to replace narrator reference with.
+
+    Returns:
+        Any: The data with narrator references replaced.
+    """
     if not narrator_name:
         return data
 
@@ -198,14 +242,29 @@ def replace_narrator(data: Any, narrator_name: str | None) -> Any:
 
 
 def standardize_location(name: str) -> str:
-    """Remove suffixes like (Interior) or - Night from locations."""
+    """Remove suffixes like (Interior) or - Night from locations.
+
+    Args:
+        name (str): The name to standardize.
+
+    Returns:
+        str: The standardized name.
+    """
     return LOCATION_SUFFIX_PATTERN.sub("", name).strip()
 
 
 def clean_binder(
     binder: dict[str, Any], narrator_name: str | None
 ) -> dict[str, Any]:
-    """Full cleaning pipeline."""
+    """Full cleaning pipeline.
+
+    Args:
+        binder (dict[str, Any]): The binder to clean.
+        narrator_name (str | None): The name to replace narrator reference with.
+
+    Returns:
+        dict[str, Any]: The cleaned binder.
+    """
     if narrator_name:
         binder = replace_narrator(binder, narrator_name)
 
