@@ -3,88 +3,10 @@
 import re
 from typing import Any
 
-TITLES: set[str] = {
-    "admiral",
-    "airman",
-    "ambassador",
-    "aunt",
-    "baron",
-    "baroness",
-    "brother",
-    "cadet",
-    "cap",
-    "captain",
-    "col",
-    "colonel",
-    "commander",
-    "commodore",
-    "corporal",
-    "count",
-    "countess",
-    "cousin",
-    "dad",
-    "daddy",
-    "doc",
-    "doctor",
-    "dr",
-    "duchess",
-    "duke",
-    "earl",
-    "ensign",
-    "father",
-    "gen",
-    "general",
-    "granddad",
-    "grandfather",
-    "grandma",
-    "grandmom",
-    "grandmother",
-    "grandpop",
-    "great aunt",
-    "great grandfather",
-    "great grandmother",
-    "great uncle",
-    "great-aunt",
-    "great-grandfather",
-    "great-grandmother",
-    "great-uncle",
-    "king",
-    "lady",
-    "leftenant",
-    "lieutenant",
-    "lord",
-    "lt",
-    "ma",
-    "ma'am",
-    "madam",
-    "major",
-    "marquis",
-    "miss",
-    "missus",
-    "mister",
-    "mjr",
-    "mom",
-    "mommy",
-    "mother",
-    "mr",
-    "mrs",
-    "ms",
-    "nurse",
-    "pa",
-    "pfc",
-    "pop",
-    "prince",
-    "princess",
-    "private",
-    "queen",
-    "sarge",
-    "seaman",
-    "sergeant",
-    "sir",
-    "sister",
-    "the",
-    "uncle",
-}
+from lorebinders.refinement.text_normalization import (
+    merge_values,
+    remove_titles,
+)
 
 NARRATOR_PATTERN = re.compile(
     r"\b(narrator|the narrator|the protagonist|protagonist|"
@@ -93,24 +15,6 @@ NARRATOR_PATTERN = re.compile(
 )
 
 LOCATION_SUFFIX_PATTERN = re.compile(r"\s*[\(\-].*", re.IGNORECASE)
-
-
-def remove_titles(name: str) -> str:
-    """Remove titles from a name.
-
-    Args:
-        name (str): The name to remove titles from.
-
-    Returns:
-        str: The name with titles removed.
-    """
-    if not name:
-        return name
-    name_split = name.split(" ")
-    first_word = name_split[0].lower().rstrip(".")
-    if first_word in TITLES and name.lower() not in TITLES:
-        return " ".join(name_split[1:])
-    return name
 
 
 def clean_str(text: str) -> str:
@@ -182,35 +86,6 @@ def clean_none_found(data: dict[str, Any]) -> dict[str, Any]:
     return cleaned
 
 
-def _merge_values(v1: Any, v2: Any) -> Any:
-    """Helper to merge values when keys collide during replacement.
-
-    Args:
-        v1 (Any): The first value.
-        v2 (Any): The second value.
-
-    Returns:
-        Any: The merged value.
-    """
-    if isinstance(v1, dict) and isinstance(v2, dict):
-        merged = v1.copy()
-        for k, v in v2.items():
-            if k in merged:
-                merged[k] = _merge_values(merged[k], v)
-            else:
-                merged[k] = v
-        return merged
-    if isinstance(v1, list) and isinstance(v2, list):
-        return list(set(v1 + v2))
-    if isinstance(v1, list):
-        return list(set(v1 + [v2]))
-    if isinstance(v2, list):
-        return list(set([v1] + v2))
-    if v1 == v2:
-        return v1
-    return [v1, v2]
-
-
 def replace_narrator(data: Any, narrator_name: str | None) -> Any:
     """Replace narrator references with a name.
 
@@ -234,7 +109,7 @@ def replace_narrator(data: Any, narrator_name: str | None) -> Any:
             new_key = NARRATOR_PATTERN.sub(narrator_name, key)
             new_val = replace_narrator(value, narrator_name)
             if new_key in new_dict:
-                new_dict[new_key] = _merge_values(new_dict[new_key], new_val)
+                new_dict[new_key] = merge_values(new_dict[new_key], new_val)
             else:
                 new_dict[new_key] = new_val
         return new_dict
@@ -281,7 +156,7 @@ def clean_binder(
                 clean_name = remove_titles(name)
 
             if clean_name in new_entities:
-                new_entities[clean_name] = _merge_values(
+                new_entities[clean_name] = merge_values(
                     new_entities[clean_name], details
                 )
             else:
