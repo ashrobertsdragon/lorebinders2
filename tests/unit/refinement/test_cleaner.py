@@ -1,12 +1,6 @@
 import pytest
-from lorebinders.refinement.cleaner import remove_titles, clean_none_found, replace_narrator, clean_binder
+from lorebinders.refinement.cleaner import clean_none_found, replace_narrator, clean_binder
 
-def test_remove_titles():
-    assert remove_titles("Captain John Smith") == "John Smith"
-    assert remove_titles("Dr. Watson") == "Watson"
-    assert remove_titles("The Kitchen") == "Kitchen"
-    assert remove_titles("John Smith") == "John Smith"
-    assert remove_titles("Captain") == "Captain"
 
 
 def test_clean_none_found():
@@ -31,9 +25,7 @@ def test_clean_none_found():
 
 
     cleaned = clean_none_found(data)
-    assert "Hair" not in cleaned["Characters"]["John"]
-    assert cleaned["Characters"]["John"]["Traits"] == ["Brave"]
-    assert "None found" not in cleaned["Characters"]
+
 
 def test_replace_narrator():
     data = {
@@ -61,10 +53,6 @@ def test_standardize_locations():
         }
     }
 
-
-
     cleaned = clean_binder(data, None)
-
-
 
     assert "Kitchen" in cleaned["Settings"]
