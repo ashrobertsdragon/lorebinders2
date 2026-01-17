@@ -4,7 +4,7 @@ from pathlib import Path
 import pytest
 from typer.testing import CliRunner
 
-from lorebinders.cli import cli
+from lorebinders.cli.__cli__ import cli
 
 runner = CliRunner()
 
