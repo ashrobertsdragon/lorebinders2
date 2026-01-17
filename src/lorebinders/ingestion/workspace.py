@@ -2,7 +2,7 @@ import re
 import shutil
 from pathlib import Path
 
-DEFAULT_WORKSPACE_BASE = Path("work")
+from lorebinders.settings import get_settings
 
 
 def sanitize_filename(name: str) -> str:
@@ -37,7 +37,11 @@ def ensure_workspace(
     Returns:
         The Path to the book's workspace directory.
     """
-    base = base_path or DEFAULT_WORKSPACE_BASE
+    base = (
+        base_path
+        if base_path is not None
+        else get_settings().workspace_base_path
+    )
     safe_author = sanitize_filename(author)
     safe_title = sanitize_filename(title)
 
@@ -58,7 +62,11 @@ def clean_workspace(
         title: The title of the book.
         base_path: Root directory for workspaces. Defaults to "work".
     """
-    base = base_path or DEFAULT_WORKSPACE_BASE
+    base = (
+        base_path
+        if base_path is not None
+        else get_settings().workspace_base_path
+    )
     safe_author = sanitize_filename(author)
     safe_title = sanitize_filename(title)
 
