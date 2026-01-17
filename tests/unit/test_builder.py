@@ -1,5 +1,4 @@
 from unittest.mock import Mock, call, patch
-
 import pytest
 from lorebinders.builder import LoreBinderBuilder
 from lorebinders.models import (
@@ -61,18 +60,30 @@ def test_builder_flow(
     )
     mock_ingestion.return_value = mock_book
 
-    mock_extraction.extract.side_effect = [
+
+    mock_extraction.side_effect = [
         ["Alice", "Bob"],
         ["Alice", "Charlie"],
     ]
 
-    mock_analysis.analyze.return_value = CharacterProfile(
+
+    mock_analysis.return_value = CharacterProfile(
         name="Alice",
         traits={"Trait1": "Value1"},
         confidence_score=0.9,
     )
 
-    with patch("lorebinders.builder.refine_binder") as mock_refine_binder:
+    with patch("lorebinders.builder.refine_binder") as mock_refine_binder, \
+         patch("lorebinders.builder.profile_exists") as mock_profile_exists, \
+         patch("lorebinders.builder.load_profile") as mock_load_profile, \
+         patch("lorebinders.builder.save_profile") as mock_save_profile:
+
+
+        mock_profile_exists.return_value = False
+        mock_load_profile.return_value = CharacterProfile(
+                name="Cached", traits={}, confidence_score=1.0
+        )
+
         mock_refine_binder.return_value = {
             "Characters": {
                 "Alice": {"Trait1": "Value1", "Summary": "Summary"},
@@ -93,10 +104,8 @@ def test_builder_flow(
         mock_ingestion.assert_called_once()
         assert mock_ingestion.call_args[0][0] == mock_config.book_path
 
-        assert mock_extraction.extract.call_count == 2
-
-        assert mock_analysis.analyze.call_count == 4
-
+        assert mock_extraction.call_count == 2
+        assert mock_analysis.call_count == 4
 
         mock_refine_binder.assert_called_once()
         call_args = mock_refine_binder.call_args
@@ -105,8 +114,6 @@ def test_builder_flow(
 
         mock_reporting.assert_called_once()
         args = mock_reporting.call_args[0]
-
         assert len(args[0]) == 3
-
         alice = next(p for p in args[0] if p.name == "Alice")
         assert alice.traits["Summary"] == "Summary"

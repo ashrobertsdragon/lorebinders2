@@ -1,16 +1,17 @@
 import os
 from pathlib import Path
 
-from lorebinder.models import (
+from pydantic_ai import Agent, RunContext
+from pydantic_ai.agent import RunOutputDataT
+from pydantic_ai.tools import AgentDepsT
+
+from lorebinders.models import (
     AnalysisConfig,
     AnalysisResult,
     ExtractionConfig,
     SummarizerConfig,
     SummarizerResult,
 )
-from pydantic_ai import Agent, RunContext
-from pydantic_ai.agent import RunOutputDataT
-from pydantic_ai.tools import AgentDepsT
 
 
 def load_prompt(filename: str) -> str:
@@ -74,101 +75,105 @@ def run_agent(
     return result.output
 
 
-extraction_agent = create_agent(
-    "EXTRACTION_MODEL",
-    deps_type=ExtractionConfig,
-    output_type=list[str],
-)
-
-
-@extraction_agent.system_prompt
-def _extraction_system_prompt(ctx: RunContext[ExtractionConfig]) -> str:
-    """Generate system prompt based on extraction configuration.
-
-    Args:
-        ctx: The run context containing the extraction configuration.
+def create_extraction_agent(
+    model_env_var: str = "EXTRACTION_MODEL",
+) -> Agent[ExtractionConfig, list[str]]:
+    """Create a configured extraction agent.
 
     Returns:
-        The system prompt for the extraction agent.
+        A configured Agent instance.
     """
-    config = ctx.deps
-    category = config.target_category
-
-    template = load_prompt("extraction.txt")
-
-    description_block = ""
-    if config.description:
-        description_block = f"Category Description: {config.description}"
-
-    narrator_block = ""
-    if config.narrator:
-        narrator_block = "Narrator Handling:"
-        if config.narrator.is_3rd_person:
-            narrator_block += (
-                "\n- The text is in 3rd person. Do not extract the narrator."
-            )
-        if config.narrator.name:
-            narrator_block += (
-                f"\n- The narrator is named '{config.narrator.name}'."
-                " Do not extract them."
-            )
-
-    return template.format(
-        target_category=category,
-        description_block=description_block,
-        narrator_block=narrator_block,
+    agent = create_agent(
+        model_env_var,
+        deps_type=ExtractionConfig,
+        output_type=list[str],
     )
 
+    @agent.system_prompt
+    def _extraction_system_prompt(ctx: RunContext[ExtractionConfig]) -> str:
+        config = ctx.deps
+        category = config.target_category
 
-analysis_agent = create_agent(
-    "ANALYSIS_MODEL",
-    deps_type=AnalysisConfig,
-    output_type=AnalysisResult,
-)
+        template = load_prompt("extraction.txt")
+
+        description_block = ""
+        if config.description:
+            description_block = f"Category Description: {config.description}"
+
+        narrator_block = ""
+        if config.narrator:
+            narrator_block = "Narrator Handling:"
+            if config.narrator.is_3rd_person:
+                narrator_block += (
+                    "\n- The text is in 3rd person. Do not extract the "
+                    "narrator."
+                )
+            if config.narrator.name:
+                narrator_block += (
+                    f"\n- The narrator is named '{config.narrator.name}'."
+                    " Do not extract them."
+                )
+
+        return template.format(
+            target_category=category,
+            description_block=description_block,
+            narrator_block=narrator_block,
+        )
+
+    return agent
 
 
-@analysis_agent.system_prompt
-def _analysis_system_prompt(ctx: RunContext[AnalysisConfig]) -> str:
-    """Generate system prompt based on analysis configuration.
-
-    Args:
-        ctx: The run context containing the analysis configuration.
-
-    Returns:
-        The system prompt for the analysis agent.
-    """
-    config = ctx.deps
-    entity = config.target_entity
-    category = config.category
-    traits = ", ".join(config.traits)
-
-    template = load_prompt("analysis.txt")
-
-    return template.format(category=category, entity=entity, traits=traits)
-
-
-summarization_agent = create_agent(
-    "SUMMARIZATION_MODEL",
-    deps_type=SummarizerConfig,
-    output_type=SummarizerResult,
-)
-
-
-@summarization_agent.system_prompt
-def _summarization_system_prompt(ctx: RunContext[SummarizerConfig]) -> str:
-    """Generate system prompt based on summarization configuration.
-
-    Args:
-        ctx: The run context containing the summarization configuration.
+def create_analysis_agent(
+    model_env_var: str = "ANALYSIS_MODEL",
+) -> Agent[AnalysisConfig, AnalysisResult]:
+    """Create a configured analysis agent.
 
     Returns:
-        The system prompt for the summarization agent.
+        A configured Agent instance.
     """
-    config = ctx.deps
-    template = load_prompt("summarization.txt")
-
-    return template.format(
-        category=config.category,
-        entity_name=config.entity_name,
-        context_data=config.context_data,
+    agent = create_agent(
+        model_env_var,
+        deps_type=AnalysisConfig,
+        output_type=AnalysisResult,
     )
+
+    @agent.system_prompt
+    def _analysis_system_prompt(ctx: RunContext[AnalysisConfig]) -> str:
+        config = ctx.deps
+        category = config.category
+        traits = ", ".join(config.traits)
+
+        return (
+            f"You are an expert literary analyst specializing in {category}. "
+            f"Your task is to analyze characters based on their description "
+            f"in the text.\nFocus on these traits: {traits}."
+        )
+
+    return agent
+
+
+def create_summarization_agent(
+    model_env_var: str = "SUMMARIZATION_MODEL",
+) -> Agent[SummarizerConfig, SummarizerResult]:
+    """Create a configured summarization agent.
+
+    Returns:
+        A configured Agent instance.
+    """
+    agent = create_agent(
+        model_env_var,
+        deps_type=SummarizerConfig,
+        output_type=SummarizerResult,
+    )
+
+    @agent.system_prompt
+    def _summarization_system_prompt(ctx: RunContext[SummarizerConfig]) -> str:
+        config = ctx.deps
+        template = load_prompt("summarization.txt")
+        return template.format(
+            category=config.category,
+            entity_name=config.entity_name,
+            context_data=config.context_data,
+        )
+
+    return agent

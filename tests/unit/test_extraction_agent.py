@@ -1,4 +1,4 @@
-from lorebinders.agent import run_agent, extraction_agent
+from lorebinders.agent import run_agent, create_extraction_agent
 from lorebinders.models import ExtractionConfig, NarratorConfig
 from tests.conftest import create_mock_model, get_system_prompt
 
@@ -7,7 +7,10 @@ def test_extraction_agent_run_sync_and_prompt():
 
     mock_model, captured_messages = create_mock_model({"response": ["Hero", "Villain"]})
 
-    with extraction_agent.override(model=mock_model):
+
+    agent = create_extraction_agent()
+
+    with agent.override(model=mock_model):
         config = ExtractionConfig(
             target_category="Characters",
             description="Main characters",
@@ -15,7 +18,7 @@ def test_extraction_agent_run_sync_and_prompt():
         )
         text = "The Hero fought the Villain."
 
-        result = run_agent(extraction_agent, text, config)
+        result = run_agent(agent, text, config)
 
         assert result == ["Hero", "Villain"]
 
