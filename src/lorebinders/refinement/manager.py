@@ -4,7 +4,7 @@ from typing import Any
 
 from lorebinders.refinement.cleaner import clean_binder
 from lorebinders.refinement.resolver import resolve_binder
-from lorebinders.refinement.summarizer import summarize_binder
+from lorebinders.refinement.summarization import summarize_binder
 
 
 def refine_binder(

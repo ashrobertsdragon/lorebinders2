@@ -5,7 +5,7 @@ from pathlib import Path
 from reportlab.lib.pagesizes import LETTER
 from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer
 
-from lorebinders.core.models import CharacterProfile
+from lorebinders.models import CharacterProfile
 from lorebinders.reporting.styles import get_document_styles
 
 

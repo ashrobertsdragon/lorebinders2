@@ -1,7 +1,7 @@
 import pytest
 from pathlib import Path
 from pydantic import ValidationError
-from lorebinders.core.models import (
+from lorebinders.models import (
     NarratorConfig,
     RunConfiguration,
     Chapter,

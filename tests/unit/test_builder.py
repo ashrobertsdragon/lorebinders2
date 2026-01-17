@@ -2,7 +2,7 @@ from unittest.mock import Mock, call, patch
 
 import pytest
 from lorebinders.builder import LoreBinderBuilder
-from lorebinders.core.models import (
+from lorebinders.models import (
     Book,
     Chapter,
     CharacterProfile,

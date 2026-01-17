@@ -2,7 +2,7 @@ from unittest.mock import patch
 from typer.testing import CliRunner
 
 from lorebinders.cli import app
-from lorebinders.core.models import Book
+from lorebinders.models import Book
 
 runner = CliRunner()
 

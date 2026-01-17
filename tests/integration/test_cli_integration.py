@@ -5,7 +5,7 @@ import pytest
 from typer.testing import CliRunner
 
 from lorebinders.cli import app
-from lorebinders.core.models import Book, Chapter
+from lorebinders.models import Book, Chapter
 
 runner = CliRunner()
 
