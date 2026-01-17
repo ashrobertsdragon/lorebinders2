@@ -5,7 +5,7 @@ import typer
 from rich.console import Console
 
 from lorebinders.builder import LoreBinderBuilder
-from lorebinders.cli_adapters import AnalysisAdapter, ExtractionAdapter
+from lorebinders.cli_adapters import get_analysis_func, get_extraction_func
 from lorebinders.ingestion.ingester import ingest
 from lorebinders.ingestion.workspace import WorkspaceManager
 from lorebinders.models import NarratorConfig, RunConfiguration
@@ -44,11 +44,7 @@ def main(
         typer.Option("--category", help="Custom category to track"),
     ] = None,
 ) -> None:
-    """LoreBinders: Create a Series Bible from your book.
-
-    Raises:
-        typer.Exit: If ingestion fails.
-    """
+    """LoreBinders: Create a Series Bible from your book."""
     narrator_config = NarratorConfig(
         is_3rd_person=is_3rd_person,
         name=narrator_name,
@@ -75,8 +71,8 @@ def main(
     )
     console.print(f"Workspace ready: {workspace_path}")
 
-    extractor = ExtractionAdapter(config)
-    analyzer = AnalysisAdapter(config)
+    extractor = get_extraction_func(config)
+    analyzer = get_analysis_func(config)
 
     builder = LoreBinderBuilder(
         ingestion=ingest,
@@ -87,6 +83,7 @@ def main(
 
     try:
         console.print("[bold blue]Running Build Pipeline...[/bold blue]")
+
         builder.run(config)
         console.print(
             "[bold green]Build Complete![/bold green] PDF Report generated."
@@ -94,7 +91,8 @@ def main(
 
     except Exception as e:
         console.print(f"[bold red]Build Failed:[/bold red] {e}")
-        raise typer.Exit(code=1)
+
+        raise
 
 
 if __name__ == "__main__":

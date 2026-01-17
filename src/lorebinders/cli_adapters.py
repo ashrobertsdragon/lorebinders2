@@ -1,62 +1,70 @@
+from collections.abc import Callable
+
 from lorebinders import models
-from lorebinders.agent import analysis_agent, extraction_agent, run_agent
+from lorebinders.agent import (
+    create_analysis_agent,
+    create_extraction_agent,
+    run_agent,
+)
 
 
-class ExtractionAdapter:
-    """Adapter for run_extraction to match ExtractionAgent protocol."""
+def get_extraction_func(
+    config: models.RunConfiguration,
+) -> Callable[[models.Chapter], list[str]]:
+    """Get a callable for extraction based on config.
 
-    def __init__(self, config: models.RunConfiguration):
-        """Initialize with run configuration."""
-        self.config = config
+    Returns:
+        A callable that extracts entities from a chapter.
+    """
+    agent = create_extraction_agent()
 
-    def extract(self, chapter: models.Chapter) -> list[str]:
-        """Extract entities from chapter content.
-
-        Returns:
-            A list of extracted entity names.
-        """
+    def extract(chapter: models.Chapter) -> list[str]:
         category = "Characters"
-        if self.config.custom_categories:
-            category = self.config.custom_categories[0]
+        if config.custom_categories:
+            category = config.custom_categories[0]
 
         ext_config = models.ExtractionConfig(
             target_category=category,
-            narrator=self.config.narrator_config,
+            narrator=config.narrator_config,
         )
-        return run_agent(extraction_agent, chapter.content, ext_config)
+        return run_agent(agent, chapter.content, ext_config)
+
+    return extract
 
 
-class AnalysisAdapter:
-    """Adapter for run_analysis to match AnalysisAgent protocol."""
+def get_analysis_func(
+    config: models.RunConfiguration,
+) -> Callable[[str, models.Chapter], models.CharacterProfile]:
+    """Get a callable for analysis based on config.
 
-    def __init__(self, config: models.RunConfiguration):
-        """Initialize with run configuration."""
-        self.config = config
+    Returns:
+        A callable that analyzes an entity in a chapter.
+    """
+    agent = create_analysis_agent()
 
-    def analyze(
-        self, name: str, context: models.Chapter
-    ) -> models.CharacterProfile:
-        """Analyze an entity within the context of a chapter.
-
-        Returns:
-            The created character profile.
-        """
-        traits = self.config.custom_traits or [
+    def analyze(name: str, context: models.Chapter) -> models.CharacterProfile:
+        traits = config.custom_traits or [
             "Role",
             "Personality",
             "Appearance",
         ]
 
         category = "Characters"
-        if self.config.custom_categories:
-            category = self.config.custom_categories[0]
+        if config.custom_categories:
+            category = config.custom_categories[0]
 
-        config = models.AnalysisConfig(
+        analysis_config = models.AnalysisConfig(
             target_entity=name,
             category=category,
             traits=traits,
         )
-        result = run_agent(analysis_agent, context.content, config)
+
+        full_prompt = (
+            f"Context:\n{context.content}\n\n"
+            f"Task: Analyze the entity '{name}' based on the context above."
+        )
+
+        result = run_agent(agent, full_prompt, analysis_config)
 
         profile_traits = {t.trait: t.value for t in result.traits}
 
@@ -65,3 +73,5 @@ class AnalysisAdapter:
             traits=profile_traits,
             confidence_score=0.8,
         )
+
+    return analyze

@@ -3,8 +3,8 @@
 import json
 from typing import Any
 
-from lorebinders.agent import run_agent, summarization_agent
-from lorebinders.agents.models import SummarizerConfig, SummarizerResult
+from lorebinders.agent import create_summarization_agent, run_agent
+from lorebinders.models import SummarizerConfig, SummarizerResult
 
 
 def _format_context(data: Any) -> str:
@@ -34,6 +34,7 @@ def summarize_binder(binder: dict[str, Any]) -> dict[str, Any]:
         The binder with added summaries.
     """
     summarized_binder = binder.copy()
+    agent = create_summarization_agent()
 
     for category, entities in binder.items():
         if not isinstance(entities, dict):
@@ -50,7 +51,7 @@ def summarize_binder(binder: dict[str, Any]) -> dict[str, Any]:
 
             try:
                 result: SummarizerResult = run_agent(
-                    summarization_agent, "Please summarize this entity.", config
+                    agent, "Please summarize this entity.", config
                 )
 
                 if isinstance(summarized_binder[category][name], dict):
