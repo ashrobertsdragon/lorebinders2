@@ -8,7 +8,7 @@ from lorebinders.ingestion.persistence import (
     profile_exists,
     save_profile,
 )
-from lorebinders.ingestion.workspace import WorkspaceManager
+from lorebinders.ingestion.workspace import ensure_workspace, sanitize_filename
 from lorebinders.refinement.manager import refine_binder
 
 
@@ -27,7 +27,6 @@ class LoreBinderBuilder:
         self.extraction = extraction
         self.analysis = analysis
         self.reporting = reporting
-        self.workspace_manager = WorkspaceManager()
 
     def _profiles_to_binder(
         self, profiles: list[models.CharacterProfile]
@@ -124,9 +123,7 @@ class LoreBinderBuilder:
 
     def run(self, config: models.RunConfiguration) -> None:
         """Execute the build pipeline synchronously."""
-        output_dir = self.workspace_manager.ensure_workspace(
-            config.author_name, config.book_title
-        )
+        output_dir = ensure_workspace(config.author_name, config.book_title)
         profiles_dir = output_dir / "profiles"
         profiles_dir.mkdir(exist_ok=True)
 
@@ -147,7 +144,7 @@ class LoreBinderBuilder:
 
         final_profiles = self._binder_to_profiles(refined_binder)
 
-        safe_title = self.workspace_manager.sanitize_filename(config.book_title)
+        safe_title = sanitize_filename(config.book_title)
         self.reporting(
             final_profiles, output_dir / f"{safe_title}_story_bible.pdf"
         )

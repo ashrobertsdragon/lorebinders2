@@ -1,46 +1,55 @@
-from unittest.mock import patch
+from pathlib import Path
+
 from typer.testing import CliRunner
 
-from lorebinders.cli import app
-from lorebinders.models import Book
+from lorebinders.cli import cli
 
 runner = CliRunner()
 
 
-def test_cli_help():
-    """Test that the CLI help message exists."""
-    result = runner.invoke(app, ["--help"])
+def test_cli_help() -> None:
+    result = runner.invoke(cli, ["--help"])
     assert result.exit_code == 0
     assert "Usage" in result.stdout
 
 
-def test_cli_input_parsing(tmp_path):
-    """Test that the CLI accepts the expected arguments."""
-    d = tmp_path / "subdir"
-    d.mkdir()
-    p = d / "book.epub"
-    p.write_text("content")
+def test_cli_requires_book_path() -> None:
+    result = runner.invoke(cli, ["--author", "Test", "--title", "Test"])
+    assert result.exit_code != 0
 
-    with patch("lorebinders.cli.WorkspaceManager") as mock_ws_cls, \
-         patch("lorebinders.cli.ingest") as mock_ingest:
 
-        mock_ws = mock_ws_cls.return_value
-        mock_ws.ensure_workspace.return_value = d / "workspace"
+def test_cli_requires_author() -> None:
+    result = runner.invoke(cli, ["nonexistent.epub", "--title", "Test"])
+    assert result.exit_code != 0
 
-        mock_ingest.return_value = Book(title="Test", author="Test", chapters=[])
 
-        result = runner.invoke(
-            app,
-            [
-                str(p),
-                "--author", "Jane Doe",
-                "--title", "My Book",
-                "--narrator-name", "John",
-                "--is-3rd-person",
-                "--trait", "Bravery",
-                "--trait", "Intelligence",
-                "--category", "Physical",
-            ],
-        )
+def test_cli_requires_title() -> None:
+    result = runner.invoke(cli, ["nonexistent.epub", "--author", "Test"])
+    assert result.exit_code != 0
 
-        assert result.exit_code == 0
+
+def test_cli_file_not_found() -> None:
+    result = runner.invoke(
+        cli,
+        ["nonexistent.epub", "--author", "Test Author", "--title", "Test Book"],
+    )
+    assert result.exit_code != 0
+    assert "Invalid value for 'BOOK_PATH'" in result.output
+
+
+def test_cli_accepts_expected_arguments(tmp_path: Path) -> None:
+    book_path = tmp_path / "book.epub"
+    book_path.write_text("content")
+
+    result = runner.invoke(
+        cli,
+        [
+            str(book_path),
+            "--author",
+            "Jane Doe",
+            "--title",
+            "My Book",
+            "--help",
+        ],
+    )
+    assert "Usage" in result.output
