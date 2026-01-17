@@ -1,17 +1,15 @@
 import json
-import os
 from typing import Any
 
 import pytest
-from pydantic_ai.messages import ModelMessage, ModelRequest, ModelResponse, SystemPromptPart, TextPart
+from pydantic_ai.messages import (
+    ModelMessage,
+    ModelRequest,
+    ModelResponse,
+    SystemPromptPart,
+    TextPart,
+)
 from pydantic_ai.models.function import FunctionModel
-
-
-@pytest.fixture(autouse=True)
-def set_model_env_vars(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("EXTRACTION_MODEL", "openai:gpt-4o-nano")
-    monkeypatch.setenv("ANALYSIS_MODEL", "openai:gpt-4o-mini")
-    monkeypatch.setenv("SUMMARIZATION_MODEL", "openai:gpt-4o-nano")
 
 
 def create_mock_model(response_data: Any) -> tuple[FunctionModel, list[ModelMessage]]:

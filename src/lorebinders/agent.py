@@ -1,4 +1,3 @@
-import os
 from pathlib import Path
 
 from pydantic_ai import Agent, RunContext
@@ -12,6 +11,7 @@ from lorebinders.models import (
     SummarizerConfig,
     SummarizerResult,
 )
+from lorebinders.settings import Settings, get_settings
 
 
 def load_prompt(filename: str) -> str:
@@ -28,27 +28,20 @@ def load_prompt(filename: str) -> str:
 
 
 def create_agent(
-    model_env_var: str,
+    model_name: str,
     deps_type: type[AgentDepsT],
     output_type: type[RunOutputDataT],
 ) -> Agent[AgentDepsT, RunOutputDataT]:
-    """Create a PydanticAI Agent configured from environment variables.
+    """Create a PydanticAI Agent with the given model.
 
     Args:
-        model_env_var: The name of the environment variable containing the
-            model name.
+        model_name: The model identifier (e.g. 'openai:gpt-4o-mini').
         deps_type: The type of dependencies (configuration) the agent uses.
         output_type: The expected output type of the agent.
 
     Returns:
         A configured Agent instance.
-
-    Raises:
-        ValueError: If the model environment variable is not set.
     """
-    model_name = os.getenv(model_env_var)
-    if not model_name:
-        raise ValueError(f"Environment variable {model_env_var} is not set.")
     return Agent(
         model_name,
         deps_type=deps_type,
@@ -76,15 +69,19 @@ def run_agent(
 
 
 def create_extraction_agent(
-    model_env_var: str = "EXTRACTION_MODEL",
+    settings: Settings | None = None,
 ) -> Agent[ExtractionConfig, list[str]]:
     """Create a configured extraction agent.
+
+    Args:
+        settings: Application settings. Uses defaults if not provided.
 
     Returns:
         A configured Agent instance.
     """
+    settings = settings or get_settings()
     agent = create_agent(
-        model_env_var,
+        settings.extraction_model,
         deps_type=ExtractionConfig,
         output_type=list[str],
     )
@@ -124,15 +121,19 @@ def create_extraction_agent(
 
 
 def create_analysis_agent(
-    model_env_var: str = "ANALYSIS_MODEL",
+    settings: Settings | None = None,
 ) -> Agent[AnalysisConfig, AnalysisResult]:
     """Create a configured analysis agent.
+
+    Args:
+        settings: Application settings. Uses defaults if not provided.
 
     Returns:
         A configured Agent instance.
     """
+    settings = settings or get_settings()
     agent = create_agent(
-        model_env_var,
+        settings.analysis_model,
         deps_type=AnalysisConfig,
         output_type=AnalysisResult,
     )
@@ -153,15 +154,19 @@ def create_analysis_agent(
 
 
 def create_summarization_agent(
-    model_env_var: str = "SUMMARIZATION_MODEL",
+    settings: Settings | None = None,
 ) -> Agent[SummarizerConfig, SummarizerResult]:
     """Create a configured summarization agent.
+
+    Args:
+        settings: Application settings. Uses defaults if not provided.
 
     Returns:
         A configured Agent instance.
     """
+    settings = settings or get_settings()
     agent = create_agent(
-        model_env_var,
+        settings.summarization_model,
         deps_type=SummarizerConfig,
         output_type=SummarizerResult,
     )
