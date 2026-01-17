@@ -12,139 +12,145 @@ from lorebinders.ingestion.workspace import ensure_workspace, sanitize_filename
 from lorebinders.refinement.manager import refine_binder
 
 
-class LoreBinderBuilder:
-    """Orchestrator for the LoreBinders build process."""
+def _profiles_to_binder(
+    profiles: list[models.CharacterProfile],
+) -> dict[str, Any]:
+    """Convert list of profiles to binder dict format.
 
-    def __init__(
-        self,
-        ingestion: Callable[[Path, Path], models.Book],
-        extraction: Callable[[models.Chapter], list[str]],
-        analysis: Callable[[str, models.Chapter], models.CharacterProfile],
-        reporting: Callable[[list[models.CharacterProfile], Path], None],
-    ):
-        """Initialize with required providers and agents."""
-        self.ingestion = ingestion
-        self.extraction = extraction
-        self.analysis = analysis
-        self.reporting = reporting
+    Args:
+        profiles (list[models.CharacterProfile]): The profiles to convert.
 
-    def _profiles_to_binder(
-        self, profiles: list[models.CharacterProfile]
-    ) -> dict[str, Any]:
-        """Convert list of profiles to binder dict format.
+    Returns:
+        dict[str, Any]: The binder dict format.
+    """
+    binder: dict[str, dict[str, Any]] = {"Characters": {}}
 
-        Args:
-            profiles (list[models.CharacterProfile]): The profiles to convert.
+    for p in profiles:
+        if p.name not in binder["Characters"]:
+            binder["Characters"][p.name] = p.traits
+        else:
+            current = binder["Characters"][p.name]
 
-        Returns:
-            dict[str, Any]: The binder dict format.
-        """
-        binder: dict[str, dict[str, Any]] = {"Characters": {}}
+            if isinstance(current, dict) and isinstance(p.traits, dict):
+                binder["Characters"][p.name].update(p.traits)
 
-        for p in profiles:
-            if p.name not in binder["Characters"]:
-                binder["Characters"][p.name] = p.traits
-            else:
-                current = binder["Characters"][p.name]
+    return binder
 
-                if isinstance(current, dict) and isinstance(p.traits, dict):
-                    binder["Characters"][p.name].update(p.traits)
 
-        return binder
+def _binder_to_profiles(
+    binder: dict[str, Any],
+) -> list[models.CharacterProfile]:
+    """Convert binder dict format back to list of profiles.
 
-    def _binder_to_profiles(
-        self, binder: dict[str, Any]
-    ) -> list[models.CharacterProfile]:
-        """Convert binder dict format back to list of profiles.
+    Args:
+        binder (dict[str, Any]): The binder dict format.
 
-        Args:
-            binder (dict[str, Any]): The binder dict format.
-
-        Returns:
-            list[models.CharacterProfile]: The list of profiles.
-        """
-        profiles = []
-        if "Characters" in binder and isinstance(binder["Characters"], dict):
-            for name, data in binder["Characters"].items():
-                if isinstance(data, dict):
-                    profiles.append(
-                        models.CharacterProfile(
-                            name=name, traits=data, confidence_score=1.0
-                        )
+    Returns:
+        list[models.CharacterProfile]: The list of profiles.
+    """
+    profiles = []
+    if "Characters" in binder and isinstance(binder["Characters"], dict):
+        for name, data in binder["Characters"].items():
+            if isinstance(data, dict):
+                profiles.append(
+                    models.CharacterProfile(
+                        name=name, traits=data, confidence_score=1.0
                     )
-        return profiles
+                )
+    return profiles
 
-    def _process_chapter(
-        self,
-        chapter: models.Chapter,
-        profiles_dir: Path,
-    ) -> list[models.CharacterProfile]:
-        """Process a single chapter: extract and analyze characters.
 
-        Args:
-            chapter: The chapter to process.
-            profiles_dir: Directory for persistence.
+def _analyze_character(
+    name: str,
+    chapter: models.Chapter,
+    profiles_dir: Path,
+    analysis_fn: Callable[[str, models.Chapter], models.CharacterProfile],
+) -> models.CharacterProfile:
+    """Analyze a single character, checking persistence first.
 
-        Returns:
-            A list of character profiles found in this chapter.
-        """
-        names = self.extraction(chapter)
+    Args:
+        name: The name of the character.
+        chapter: The chapter context.
+        profiles_dir: Directory for persistence.
+        analysis_fn: Function to perform analysis.
 
-        chapter_profiles = []
-        for name in names:
-            profile = self._analyze_character(name, chapter, profiles_dir)
-            chapter_profiles.append(profile)
+    Returns:
+        The analyzed profile.
+    """
+    if profile_exists(profiles_dir, chapter.number, name):
+        return load_profile(profiles_dir, chapter.number, name)
 
-        return chapter_profiles
+    profile = analysis_fn(name, chapter)
 
-    def _analyze_character(
-        self,
-        name: str,
-        chapter: models.Chapter,
-        profiles_dir: Path,
-    ) -> models.CharacterProfile:
-        """Analyze a single character, checking persistence first.
+    save_profile(profiles_dir, chapter.number, profile)
+    return profile
 
-        Args:
-            name: The name of the character.
-            chapter: The chapter context.
-            profiles_dir: Directory for persistence.
 
-        Returns:
-            The analyzed profile.
-        """
-        if profile_exists(profiles_dir, chapter.number, name):
-            return load_profile(profiles_dir, chapter.number, name)
+def _process_chapter(
+    chapter: models.Chapter,
+    profiles_dir: Path,
+    extraction_fn: Callable[[models.Chapter], list[str]],
+    analysis_fn: Callable[[str, models.Chapter], models.CharacterProfile],
+) -> list[models.CharacterProfile]:
+    """Process a single chapter: extract and analyze characters.
 
-        profile = self.analysis(name, chapter)
+    Args:
+        chapter: The chapter to process.
+        profiles_dir: Directory for persistence.
+        extraction_fn: Function to extract entities.
+        analysis_fn: Function to analyze entities.
 
-        save_profile(profiles_dir, chapter.number, profile)
-        return profile
+    Returns:
+        A list of character profiles found in this chapter.
+    """
+    names = extraction_fn(chapter)
 
-    def run(self, config: models.RunConfiguration) -> None:
-        """Execute the build pipeline synchronously."""
-        output_dir = ensure_workspace(config.author_name, config.book_title)
-        profiles_dir = output_dir / "profiles"
-        profiles_dir.mkdir(exist_ok=True)
+    chapter_profiles = []
+    for name in names:
+        profile = _analyze_character(name, chapter, profiles_dir, analysis_fn)
+        chapter_profiles.append(profile)
 
-        book = self.ingestion(config.book_path, output_dir)
+    return chapter_profiles
 
-        all_profiles: list[models.CharacterProfile] = []
 
-        for chapter in book.chapters:
-            chapter_profiles = self._process_chapter(chapter, profiles_dir)
-            all_profiles.extend(chapter_profiles)
+def build_binder(
+    config: models.RunConfiguration,
+    ingestion: Callable[[Path, Path], models.Book],
+    extraction: Callable[[models.Chapter], list[str]],
+    analysis: Callable[[str, models.Chapter], models.CharacterProfile],
+    reporting: Callable[[list[models.CharacterProfile], Path], None],
+) -> None:
+    """Execute the LoreBinders build pipeline.
 
-        raw_binder = self._profiles_to_binder(all_profiles)
+    Args:
+        config: Configuration for the build run.
+        ingestion: Function to ingest the book.
+        extraction: Function to extract entities from a chapter.
+        analysis: Function to analyze an entity in a chapter.
+        reporting: Function to generate the final report.
+    """
+    output_dir = ensure_workspace(config.author_name, config.book_title)
+    profiles_dir = output_dir / "profiles"
+    profiles_dir.mkdir(exist_ok=True)
 
-        narrator_name = (
-            config.narrator_config.name if config.narrator_config else None
+    book = ingestion(config.book_path, output_dir)
+
+    all_profiles: list[models.CharacterProfile] = []
+
+    for chapter in book.chapters:
+        chapter_profiles = _process_chapter(
+            chapter, profiles_dir, extraction, analysis
         )
-        refined_binder = refine_binder(raw_binder, narrator_name)
+        all_profiles.extend(chapter_profiles)
 
-        final_profiles = self._binder_to_profiles(refined_binder)
+    raw_binder = _profiles_to_binder(all_profiles)
 
-        safe_title = sanitize_filename(config.book_title)
-        self.reporting(
-            final_profiles, output_dir / f"{safe_title}_story_bible.pdf"
-        )
+    narrator_name = (
+        config.narrator_config.name if config.narrator_config else None
+    )
+    refined_binder = refine_binder(raw_binder, narrator_name)
+
+    final_profiles = _binder_to_profiles(refined_binder)
+
+    safe_title = sanitize_filename(config.book_title)
+    reporting(final_profiles, output_dir / f"{safe_title}_story_bible.pdf")
