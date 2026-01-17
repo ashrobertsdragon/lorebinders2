@@ -23,7 +23,7 @@ def load_prompt(filename: str) -> str:
     Returns:
         The content of the prompt file.
     """
-    prompt_path = Path(__file__).parent.parent / "assets" / "prompts" / filename
+    prompt_path = Path(__file__).parent / "assets" / "prompts" / filename
     return prompt_path.read_text(encoding="utf-8")
 
 

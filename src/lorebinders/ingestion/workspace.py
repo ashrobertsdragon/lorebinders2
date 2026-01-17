@@ -2,62 +2,66 @@ import re
 import shutil
 from pathlib import Path
 
+DEFAULT_WORKSPACE_BASE = Path("work")
 
-class WorkspaceManager:
-    """Manages creation and cleanup of workspace directories."""
 
-    def __init__(self, base_path: Path = Path("work")):
-        """Initialize the WorkspaceManager.
+def sanitize_filename(name: str) -> str:
+    """Sanitize a string to be safe for use as a filename.
 
-        Args:
-            base_path: Root directory for workspaces. Defaults to "work".
-        """
-        self.base_path = base_path
+    Replaces non-alphanumeric characters (except -) with underscores.
 
-    def ensure_workspace(self, author: str, title: str) -> Path:
-        """Create (if needed) and return the path to the book's workspace.
+    Args:
+        name: The input string.
 
-        Structure: work/{author}/{title}
+    Returns:
+        A safe filename string.
+    """
+    cleaned = re.sub(r"[^a-zA-Z0-9\-]", "_", name)
+    return re.sub(r"_+", "_", cleaned)
 
-        Args:
-            author: The name of the author.
-            title: The title of the book.
 
-        Returns:
-            The Path to the book's workspace directory.
-        """
-        safe_author = self.sanitize_filename(author)
-        safe_title = self.sanitize_filename(title)
+def ensure_workspace(
+    author: str,
+    title: str,
+    base_path: Path | None = None,
+) -> Path:
+    """Create (if needed) and return the path to the book's workspace.
 
-        path = self.base_path / safe_author / safe_title
-        path.mkdir(parents=True, exist_ok=True)
-        return path
+    Structure: {base_path}/{author}/{title}
 
-    def clean_workspace(self, author: str, title: str) -> None:
-        """Remove the workspace directory for a specific book.
+    Args:
+        author: The name of the author.
+        title: The title of the book.
+        base_path: Root directory for workspaces. Defaults to "work".
 
-        Args:
-            author: The name of the author.
-            title: The title of the book.
-        """
-        safe_author = self.sanitize_filename(author)
-        safe_title = self.sanitize_filename(title)
+    Returns:
+        The Path to the book's workspace directory.
+    """
+    base = base_path or DEFAULT_WORKSPACE_BASE
+    safe_author = sanitize_filename(author)
+    safe_title = sanitize_filename(title)
 
-        path = self.base_path / safe_author / safe_title
-        if path.exists():
-            shutil.rmtree(path)
+    path = base / safe_author / safe_title
+    path.mkdir(parents=True, exist_ok=True)
+    return path
 
-    def sanitize_filename(self, name: str) -> str:
-        """Sanitize a string to be safe for use as a filename.
 
-        Replaces non-alphanumeric characters (except - and .) with underscores.
+def clean_workspace(
+    author: str,
+    title: str,
+    base_path: Path | None = None,
+) -> None:
+    """Remove the workspace directory for a specific book.
 
-        Args:
-            name: The input string.
+    Args:
+        author: The name of the author.
+        title: The title of the book.
+        base_path: Root directory for workspaces. Defaults to "work".
+    """
+    base = base_path or DEFAULT_WORKSPACE_BASE
+    safe_author = sanitize_filename(author)
+    safe_title = sanitize_filename(title)
 
-        Returns:
-            A safe filename string.
-        """
-        cleaned = re.sub(r"[^a-zA-Z0-9\-]", "_", name)
-        cleaned = re.sub(r"_+", "_", cleaned)
-        return cleaned
+    path = base / safe_author / safe_title
+    if path.exists():
+        shutil.rmtree(path)

@@ -4,18 +4,14 @@ from typing import Annotated
 import typer
 from rich.console import Console
 
-from lorebinders.builder import LoreBinderBuilder
-from lorebinders.cli_adapters import get_analysis_func, get_extraction_func
-from lorebinders.ingestion.ingester import ingest
-from lorebinders.ingestion.workspace import WorkspaceManager
+from lorebinders import app
 from lorebinders.models import NarratorConfig, RunConfiguration
-from lorebinders.reporting.pdf import generate_pdf_report
 
-app = typer.Typer(no_args_is_help=True)
+cli = typer.Typer(no_args_is_help=True)
 console = Console()
 
 
-@app.command()
+@cli.command()
 def main(
     book_path: Annotated[
         Path,
@@ -59,41 +55,17 @@ def main(
         custom_categories=categories or [],
     )
 
-    console.print("[green]Configuration Validated![/green]")
-    console.print(config)
-
-    console.print("[bold blue]Starting Ingestion...[/bold blue]")
-
-    workspace_mgr = WorkspaceManager()
-    workspace_path = workspace_mgr.ensure_workspace(
-        author=config.author_name,
-        title=config.book_title,
-    )
-    console.print(f"Workspace ready: {workspace_path}")
-
-    extractor = get_extraction_func(config)
-    analyzer = get_analysis_func(config)
-
-    builder = LoreBinderBuilder(
-        ingestion=ingest,
-        extraction=extractor,
-        analysis=analyzer,
-        reporting=generate_pdf_report,
-    )
+    console.print("[bold blue]Starting LoreBinders...[/bold blue]")
 
     try:
-        console.print("[bold blue]Running Build Pipeline...[/bold blue]")
-
-        builder.run(config)
+        output_path = app.run(config)
         console.print(
-            "[bold green]Build Complete![/bold green] PDF Report generated."
+            f"[bold green]Complete![/bold green] Report saved to: {output_path}"
         )
-
     except Exception as e:
         console.print(f"[bold red]Build Failed:[/bold red] {e}")
-
         raise
 
 
 if __name__ == "__main__":
-    app()
+    cli()

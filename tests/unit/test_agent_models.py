@@ -1,8 +1,7 @@
 import pytest
 from pydantic import ValidationError
 
-from lorebinders.agents.models import AnalysisConfig, ExtractionConfig
-from lorebinders.models import NarratorConfig
+from lorebinders.models import AnalysisConfig, ExtractionConfig, NarratorConfig
 
 
 def test_extraction_config_valid():
