@@ -4,7 +4,7 @@ from pathlib import Path
 import ebook2text
 from dotenv import load_dotenv
 
-from lorebinders.core.models import Book, Chapter
+from lorebinders.models import Book, Chapter
 
 load_dotenv()
 

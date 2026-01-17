@@ -5,7 +5,7 @@ from pydantic_ai.messages import ModelMessage, ModelRequest, ModelResponse, Syst
 
 from lorebinders.agents.summarization import run_summarization, summarization_agent
 from lorebinders.agents.models import SummarizerConfig, SummarizerResult
-from lorebinders.refinement.summarizer import summarize_binder
+from lorebinders.refinement.summarization import summarize_binder
 
 def test_summarization_agent_run_sync_and_prompt():
     """Test run_summarization execution and prompt generation."""

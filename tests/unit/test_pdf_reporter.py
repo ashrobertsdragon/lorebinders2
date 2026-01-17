@@ -5,7 +5,7 @@ from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
-from lorebinders.core.models import Book, CharacterProfile, Chapter
+from lorebinders.models import Book, CharacterProfile, Chapter
 from lorebinders.reporting.pdf import generate_pdf_report
 
 @pytest.fixture

@@ -1,12 +1,10 @@
+from collections.abc import Callable
+from pathlib import Path
 from typing import Any
 
-from lorebinders.core import models
-from lorebinders.core.interfaces import (
-    AnalysisAgent,
-    ExtractionAgent,
-    IngestionProvider,
-    ReportingProvider,
-)
+from huggingface_hub import Agent
+
+from lorebinders import models
 from lorebinders.ingestion.workspace import WorkspaceManager
 from lorebinders.refinement.manager import refine_binder
 
@@ -16,10 +14,10 @@ class LoreBinderBuilder:
 
     def __init__(
         self,
-        ingestion: IngestionProvider,
-        extraction: ExtractionAgent,
-        analysis: AnalysisAgent,
-        reporting: ReportingProvider,
+        ingestion: Callable[[Path, Path], models.Book],
+        extraction: Agent,
+        analysis: Agent,
+        reporting: Callable[[list[models.CharacterProfile], Path], None],
     ):
         """Initialize with required providers and agents."""
         self.ingestion = ingestion

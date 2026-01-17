@@ -6,7 +6,7 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
-from lorebinders.core.models import Book, Chapter
+from lorebinders.models import Book, Chapter
 from lorebinders.ingestion.ingester import ingest, _split_chapters
 
 

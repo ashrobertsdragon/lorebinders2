@@ -6,9 +6,9 @@ from rich.console import Console
 
 from lorebinders.builder import LoreBinderBuilder
 from lorebinders.cli_adapters import AnalysisAdapter, ExtractionAdapter
-from lorebinders.core.models import NarratorConfig, RunConfiguration
 from lorebinders.ingestion.ingester import ingest
 from lorebinders.ingestion.workspace import WorkspaceManager
+from lorebinders.models import NarratorConfig, RunConfiguration
 from lorebinders.reporting.pdf import generate_pdf_report
 
 app = typer.Typer(no_args_is_help=True)

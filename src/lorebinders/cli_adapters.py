@@ -1,11 +1,8 @@
-from lorebinders.agents.analysis import run_analysis
-from lorebinders.agents.extraction import run_extraction
-from lorebinders.agents.models import AnalysisConfig, ExtractionConfig
-from lorebinders.core import models
-from lorebinders.core.interfaces import AnalysisAgent, ExtractionAgent
+from lorebinders import models
+from lorebinders.agent import analysis_agent, extraction_agent, run_agent
 
 
-class ExtractionAdapter(ExtractionAgent):
+class ExtractionAdapter:
     """Adapter for run_extraction to match ExtractionAgent protocol."""
 
     def __init__(self, config: models.RunConfiguration):
@@ -22,14 +19,14 @@ class ExtractionAdapter(ExtractionAgent):
         if self.config.custom_categories:
             category = self.config.custom_categories[0]
 
-        ext_config = ExtractionConfig(
+        ext_config = models.ExtractionConfig(
             target_category=category,
             narrator=self.config.narrator_config,
         )
-        return run_extraction(chapter.content, ext_config)
+        return run_agent(extraction_agent, chapter.content, ext_config)
 
 
-class AnalysisAdapter(AnalysisAgent):
+class AnalysisAdapter:
     """Adapter for run_analysis to match AnalysisAgent protocol."""
 
     def __init__(self, config: models.RunConfiguration):
@@ -54,12 +51,12 @@ class AnalysisAdapter(AnalysisAgent):
         if self.config.custom_categories:
             category = self.config.custom_categories[0]
 
-        ana_config = AnalysisConfig(
+        config = models.AnalysisConfig(
             target_entity=name,
             category=category,
             traits=traits,
         )
-        result = run_analysis(context.content, ana_config)
+        result = run_agent(analysis_agent, context.content, config)
 
         profile_traits = {t.trait: t.value for t in result.traits}
 
