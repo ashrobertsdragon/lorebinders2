@@ -1,6 +1,6 @@
 from unittest.mock import Mock, call, patch
 import pytest
-from lorebinders.builder import LoreBinderBuilder
+from lorebinders.builder import build_binder
 from lorebinders.models import (
     Book,
     Chapter,
@@ -92,19 +92,20 @@ def test_builder_flow(
             }
         }
 
-        builder = LoreBinderBuilder(
+        build_binder(
+            config=mock_config,
             ingestion=mock_ingestion,
             extraction=mock_extraction,
             analysis=mock_analysis,
             reporting=mock_reporting,
         )
 
-        builder.run(mock_config)
-
         mock_ingestion.assert_called_once()
         assert mock_ingestion.call_args[0][0] == mock_config.book_path
 
+
         assert mock_extraction.call_count == 2
+
         assert mock_analysis.call_count == 4
 
         mock_refine_binder.assert_called_once()

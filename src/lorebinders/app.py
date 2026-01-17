@@ -11,7 +11,7 @@ from lorebinders.agent import (
     create_extraction_agent,
     run_agent,
 )
-from lorebinders.builder import LoreBinderBuilder
+from lorebinders.builder import build_binder
 from lorebinders.ingestion.ingester import ingest
 from lorebinders.ingestion.workspace import ensure_workspace, sanitize_filename
 from lorebinders.models import (
@@ -95,14 +95,13 @@ def run(config: RunConfiguration) -> Path:
     extractor = _create_extractor(config, extraction_agent)
     analyzer = _create_analyzer(config, analysis_agent)
 
-    builder = LoreBinderBuilder(
+    build_binder(
+        config=config,
         ingestion=ingest,
         extraction=extractor,
         analysis=analyzer,
         reporting=generate_pdf_report,
     )
-
-    builder.run(config)
 
     safe_title = sanitize_filename(config.book_title)
     return output_dir / f"{safe_title}_story_bible.pdf"
