@@ -89,6 +89,33 @@ def _prioritize_keys(key1: str, key2: str) -> tuple[str, str]:
     return key1, key2
 
 
+def _resolve_category_entities(entities: dict[str, Any]) -> dict[str, Any]:
+    """Resolve duplicates within a category's entities.
+
+    Returns:
+        The resolved entities dictionary.
+    """
+    working_entities = entities.copy()
+    names = list(working_entities.keys())
+    duplicates_to_remove: set[str] = set()
+
+    for n1, n2 in combinations(names, 2):
+        if n1 in duplicates_to_remove or n2 in duplicates_to_remove:
+            continue
+        if _is_similar_key(n1, n2):
+            to_merge, to_keep = _prioritize_keys(n1, n2)
+            working_entities[to_keep] = merge_values(
+                working_entities[to_keep], working_entities[to_merge]
+            )
+            duplicates_to_remove.add(to_merge)
+
+    return {
+        name: val
+        for name, val in working_entities.items()
+        if name not in duplicates_to_remove
+    }
+
+
 def resolve_binder(binder: dict[str, Any]) -> dict[str, Any]:
     """Full resolution pipeline.
 
@@ -104,26 +131,6 @@ def resolve_binder(binder: dict[str, Any]) -> dict[str, Any]:
         if not isinstance(entities, dict):
             resolved_binder[category] = entities
             continue
-
-        working_entities = entities.copy()
-        names = list(working_entities.keys())
-        duplicates_to_remove = set()
-
-        for n1, n2 in combinations(names, 2):
-            if n1 in duplicates_to_remove or n2 in duplicates_to_remove:
-                continue
-
-            if _is_similar_key(n1, n2):
-                to_merge, to_keep = _prioritize_keys(n1, n2)
-                working_entities[to_keep] = merge_values(
-                    working_entities[to_keep], working_entities[to_merge]
-                )
-                duplicates_to_remove.add(to_merge)
-
-        resolved_binder[category] = {
-            name: val
-            for name, val in working_entities.items()
-            if name not in duplicates_to_remove
-        }
+        resolved_binder[category] = _resolve_category_entities(entities)
 
     return resolved_binder
