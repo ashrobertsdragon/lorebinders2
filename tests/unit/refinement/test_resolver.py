@@ -1,5 +1,5 @@
 import pytest
-from lorebinders.refinement.resolver import _is_similar_key, resolve_binder
+from lorebinders.refinement.deduplication import _is_similar_key, resolve_binder
 
 @pytest.mark.parametrize(
     "key1, key2, expected",

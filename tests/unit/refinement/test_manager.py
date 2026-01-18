@@ -5,7 +5,7 @@ from pydantic_ai.messages import ModelMessage, ModelResponse, TextPart
 from pydantic_ai.models.function import FunctionModel
 
 from lorebinders.agent import create_summarization_agent
-from lorebinders.refinement.manager import refine_binder
+from lorebinders.refinement import refine_binder
 
 @pytest.mark.skip(reason="Requires Phase 6 testing overhaul for agent injection")
 def test_refinement_manager_integration() -> None:

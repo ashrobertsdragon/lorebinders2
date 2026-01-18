@@ -10,7 +10,7 @@ from lorebinders.builder import (
     _aggregate_book_data,
     _binder_to_profiles,
     _process_chapter,
-    _analyze_character,
+    _analyze_entity,
     build_binder,
 )
 
@@ -68,14 +68,14 @@ def test_binder_to_profiles_reconstruction():
     assert p2.name == "Alice" and p2.traits == {"Age": "20"}
 
 
-def test_analyze_character_new_creates_file(temp_workspace: Path):
+def test_analyze_entity_new_creates_file(temp_workspace: Path):
     """Test analyzing a new character saves it to disk."""
     chapter = models.Chapter(number=1, title="Ch1", content="Some content")
 
     def fake_analysis(name: str, category: str, ctx: models.Chapter) -> models.EntityProfile:
         return models.EntityProfile(name=name, category=category, chapter_number=ctx.number, traits={"Status": "New"}, confidence_score=0.8)
 
-    profile = _analyze_character("Alice", "Characters", chapter, temp_workspace, fake_analysis)
+    profile = _analyze_entity("Alice", "Characters", chapter, temp_workspace, fake_analysis)
 
     assert profile.name == "Alice"
     assert profile.category == "Characters"
@@ -86,7 +86,7 @@ def test_analyze_character_new_creates_file(temp_workspace: Path):
     assert expected_file.exists()
 
 
-def test_analyze_character_existing_loads_file(temp_workspace: Path):
+def test_analyze_entity_existing_loads_file(temp_workspace: Path):
     """Test that existing profiles are loaded instead of re-analyzed."""
     chapter = models.Chapter(number=1, title="Ch1", content="Some content")
 
@@ -100,7 +100,7 @@ def test_analyze_character_existing_loads_file(temp_workspace: Path):
         called = True
         return models.EntityProfile(name=name, category=category, chapter_number=ctx.number, traits={"Status": "Wrong"}, confidence_score=0.0)
 
-    profile = _analyze_character("Alice", "Characters", chapter, temp_workspace, fake_analysis)
+    profile = _analyze_entity("Alice", "Characters", chapter, temp_workspace, fake_analysis)
 
     assert not called
     assert profile.traits["Status"] == "Old"

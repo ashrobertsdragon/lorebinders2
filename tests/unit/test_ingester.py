@@ -7,12 +7,12 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 from lorebinders.models import Book, Chapter
-from lorebinders.ingestion.ingester import ingest, _split_chapters
+from lorebinders.ingestion.conversion import ingest, _split_chapters
 
 
 @pytest.fixture
 def mock_ebook2text():
-    with patch("lorebinders.ingestion.ingester.ebook2text") as mock:
+    with patch("lorebinders.ingestion.conversion.ebook2text") as mock:
         yield mock
 
 

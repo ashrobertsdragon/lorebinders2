@@ -5,7 +5,6 @@ from typing import Any
 from pydantic_ai import Agent
 
 from lorebinders.agent import (
-    AgentDeps,
     build_analysis_user_prompt,
     build_extraction_user_prompt,
     create_analysis_agent,
@@ -14,18 +13,19 @@ from lorebinders.agent import (
     run_agent,
 )
 from lorebinders.builder import build_binder
-from lorebinders.ingestion.ingester import ingest
-from lorebinders.ingestion.workspace import ensure_workspace, sanitize_filename
+from lorebinders.ingestion.conversion import ingest
 from lorebinders.models import (
+    AgentDeps,
     Chapter,
     EntityProfile,
     RunConfiguration,
 )
 from lorebinders.reporting.pdf import generate_pdf_report
 from lorebinders.settings import Settings, get_settings
+from lorebinders.storage.workspace import ensure_workspace, sanitize_filename
 
 
-def get_effective_traits(
+def merge_traits(
     settings: Settings, config: RunConfiguration
 ) -> dict[str, list[str]]:
     """Merge default settings with run configuration to get effective traits.
@@ -151,7 +151,7 @@ def run(config: RunConfiguration) -> Path:
     settings = get_settings()
     deps = AgentDeps(settings=settings, prompt_loader=load_prompt_from_assets)
 
-    effective_traits = get_effective_traits(settings, config)
+    effective_traits = merge_traits(settings, config)
     all_categories = list(effective_traits.keys())
 
     extraction_agent = create_extraction_agent(settings)

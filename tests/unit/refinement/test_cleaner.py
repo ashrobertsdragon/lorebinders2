@@ -1,5 +1,5 @@
 import pytest
-from lorebinders.refinement.cleaner import clean_none_found, replace_narrator, clean_binder
+from lorebinders.refinement.cleaning import clean_none_found, replace_narrator, clean_binder
 
 
 
@@ -47,7 +47,7 @@ def test_replace_narrator():
 
 def test_standardize_locations():
     data = {
-        "Settings": {
+        "Locations": {
             "Kitchen (Interior)": "Hot",
             "Forest - Night": "Dark"
         }
@@ -55,4 +55,4 @@ def test_standardize_locations():
 
     cleaned = clean_binder(data, None)
 
-    assert "Kitchen" in cleaned["Settings"]
+    assert "Kitchen" in cleaned["Locations"]
