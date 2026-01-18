@@ -1,18 +1,17 @@
-"""Refinement module for LoreBinders."""
+"""Refinement module for LoreBinders - data cleaning and deduplication."""
 
 from typing import Any
 
 from lorebinders.refinement.cleaning import clean_binder
 from lorebinders.refinement.deduplication import resolve_binder
-from lorebinders.refinement.summarization import summarize_binder
 
 
 def refine_binder(
     binder: dict[str, Any], narrator_name: str | None = None
 ) -> dict[str, Any]:
-    """Execute the full refinement pipeline.
+    """Execute the refinement pipeline.
 
-    Flow: Clean -> Resolve -> Summarize.
+    Flow: Clean -> Resolve.
 
     Args:
         binder: The raw binder data from extraction.
@@ -20,12 +19,10 @@ def refine_binder(
             placeholders.
 
     Returns:
-        The fully refined and summarized binder.
+        The cleaned and deduplicated binder.
     """
     cleaned_binder = clean_binder(binder, narrator_name)
 
     resolved_binder = resolve_binder(cleaned_binder)
 
-    final_binder = summarize_binder(resolved_binder)
-
-    return final_binder
+    return resolved_binder

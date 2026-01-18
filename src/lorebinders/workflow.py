@@ -3,6 +3,7 @@ from pathlib import Path
 from typing import Any
 
 from lorebinders import models
+from lorebinders.agent.summarization import summarize_binder
 from lorebinders.refinement import refine_binder
 from lorebinders.storage.profiles import (
     load_profile,
@@ -181,7 +182,9 @@ def build_binder(
     )
     refined_binder = refine_binder(raw_binder, narrator_name)
 
-    final_profiles = _binder_to_profiles(refined_binder)
+    summarized_binder = summarize_binder(refined_binder)
+
+    final_profiles = _binder_to_profiles(summarized_binder)
 
     safe_title = sanitize_filename(config.book_title)
     reporting(final_profiles, output_dir / f"{safe_title}_story_bible.pdf")

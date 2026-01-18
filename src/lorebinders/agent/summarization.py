@@ -1,9 +1,9 @@
-"""Entity summarization logic for refinement."""
+"""Entity summarization using AI agents."""
 
 import json
 from typing import Any
 
-from lorebinders.agent import (
+from lorebinders.agent.core import (
     build_summarization_user_prompt,
     create_summarization_agent,
     run_agent,

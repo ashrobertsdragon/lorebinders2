@@ -11,7 +11,7 @@ from lorebinders.agent import (
     run_agent,
 )
 from lorebinders.models import SummarizerConfig, SummarizerResult
-from lorebinders.refinement.summarization import summarize_binder
+from lorebinders.agent.summarization import summarize_binder
 from lorebinders.settings import Settings
 
 
