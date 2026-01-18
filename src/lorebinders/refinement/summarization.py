@@ -3,7 +3,11 @@
 import json
 from typing import Any
 
-from lorebinders.agent import create_summarization_agent, run_agent
+from lorebinders.agent import (
+    build_summarization_user_prompt,
+    create_summarization_agent,
+    run_agent,
+)
 from lorebinders.models import SummarizerConfig, SummarizerResult
 
 
@@ -43,15 +47,18 @@ def summarize_binder(binder: dict[str, Any]) -> dict[str, Any]:
         for name, details in entities.items():
             context_str = _format_context(details)
 
-            config = SummarizerConfig(
+            prompt = build_summarization_user_prompt(
                 entity_name=name,
                 category=category,
                 context_data=context_str,
             )
 
             try:
+                dummy_config = SummarizerConfig(
+                    entity_name="", category="", context_data=""
+                )
                 result: SummarizerResult = run_agent(
-                    agent, "Please summarize this entity.", config
+                    agent, prompt, dummy_config
                 )
 
                 if isinstance(summarized_binder[category][name], dict):

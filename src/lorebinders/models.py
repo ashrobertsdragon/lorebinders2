@@ -17,7 +17,7 @@ class RunConfiguration(BaseModel):
     author_name: str
     book_title: str
     narrator_config: NarratorConfig
-    custom_traits: list[str] = Field(default_factory=list)
+    custom_traits: dict[str, list[str]] = Field(default_factory=dict)
     custom_categories: list[str] = Field(default_factory=list)
 
 
@@ -37,10 +37,11 @@ class Book(BaseModel):
     chapters: list[Chapter] = Field(default_factory=list)
 
 
-class CharacterProfile(BaseModel):
-    """Structured output for a character analysis."""
+class EntityProfile(BaseModel):
+    """Structured output for an entity analysis."""
 
     name: str
+    category: str
     traits: dict[str, str] = Field(
         default_factory=dict, description="Map of trait keys to analysis values"
     )

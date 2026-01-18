@@ -21,8 +21,18 @@ class Settings(BaseSettings):
 
     workspace_base_path: Path = Path("work")
 
-    default_category: str = "Characters"
-    default_traits: list[str] = ["Role", "Personality", "Appearance"]
+    categories: list[str] = ["Characters", "Locations"]
+    character_traits: list[str] = [
+        "Appearance",
+        "Personality",
+        "Mood",
+        "Relationships to other characters",
+    ]
+    location_traits: list[str] = [
+        "Key Features",
+        "Relative Location",
+        "Character Familiarity",
+    ]
 
 
 def get_settings() -> Settings:

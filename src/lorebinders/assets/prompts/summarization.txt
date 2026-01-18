@@ -1,10 +1,5 @@
 You are an expert literary analyst and summarizer.
-Your goal is to provide a concise, cohesive, and insightful summary of a {category} named "{entity_name}" based on the provided context data.
+Your goal is to provide a concise, cohesive, and insightful summary of the entity described in the provided context data.
 
 The context data contains fragmented notes, traits, and descriptions collected from various chapters.
-Synthesize this information into a professional "Series Bible" style summary.
-
-Context Data:
-{context_data}
-
-Summary:
+Synthesize this information into a professional "Story Bible" style summary.
