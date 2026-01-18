@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from lorebinders.ingestion.workspace import (
+from lorebinders.storage.workspace import (
     clean_workspace,
     ensure_workspace,
     sanitize_filename,

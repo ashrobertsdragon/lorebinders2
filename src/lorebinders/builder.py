@@ -3,13 +3,13 @@ from pathlib import Path
 from typing import Any
 
 from lorebinders import models
-from lorebinders.ingestion.persistence import (
+from lorebinders.refinement import refine_binder
+from lorebinders.storage.profiles import (
     load_profile,
     profile_exists,
     save_profile,
 )
-from lorebinders.ingestion.workspace import ensure_workspace, sanitize_filename
-from lorebinders.refinement.manager import refine_binder
+from lorebinders.storage.workspace import ensure_workspace, sanitize_filename
 
 
 def _aggregate_book_data(book: models.Book) -> dict[str, Any]:
@@ -89,7 +89,7 @@ def _binder_to_profiles(
     return profiles
 
 
-def _analyze_character(
+def _analyze_entity(
     name: str,
     category: str,
     chapter: models.Chapter,
@@ -139,7 +139,7 @@ def _process_chapter(
     chapter_profiles = []
     for category, names in extracted_data.items():
         for name in names:
-            profile = _analyze_character(
+            profile = _analyze_entity(
                 name, category, chapter, profiles_dir, analysis_fn
             )
             chapter_profiles.append(profile)

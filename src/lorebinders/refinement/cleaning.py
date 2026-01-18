@@ -3,7 +3,7 @@
 import re
 from typing import Any
 
-from lorebinders.refinement.text_normalization import (
+from lorebinders.refinement.normalization import (
     merge_values,
     remove_titles,
 )
@@ -135,7 +135,7 @@ def _clean_entity_name(name: str, category: str) -> str:
         The cleaned entity name.
     """
     match category.lower():
-        case "settings":
+        case "locations":
             return standardize_location(name)
         case "characters":
             return remove_titles(name)

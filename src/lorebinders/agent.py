@@ -1,5 +1,3 @@
-from collections.abc import Callable
-from dataclasses import dataclass
 from pathlib import Path
 
 from pydantic_ai import Agent, RunContext
@@ -7,6 +5,7 @@ from pydantic_ai.agent import RunOutputDataT
 from pydantic_ai.tools import AgentDepsT
 
 from lorebinders.models import (
+    AgentDeps,
     AnalysisResult,
     NarratorConfig,
     SummarizerResult,
@@ -23,14 +22,6 @@ def load_prompt_from_assets(filename: str) -> str:
     return (Path(__file__).parent / "assets" / "prompts" / filename).read_text(
         encoding="utf-8"
     )
-
-
-@dataclass
-class AgentDeps:
-    """Dependencies injected into agents."""
-
-    settings: Settings
-    prompt_loader: Callable[[str], str]
 
 
 def create_agent(

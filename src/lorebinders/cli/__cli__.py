@@ -5,7 +5,7 @@ import typer
 from rich.console import Console
 
 from lorebinders import app
-from lorebinders.cli.adapters import build_run_configuration
+from lorebinders.cli.configuration import build_run_configuration
 
 cli = typer.Typer(no_args_is_help=True)
 console = Console()

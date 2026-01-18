@@ -3,7 +3,7 @@
 from itertools import combinations
 from typing import Any
 
-from lorebinders.refinement.text_normalization import (
+from lorebinders.refinement.normalization import (
     TITLES,
     merge_values,
     remove_titles,

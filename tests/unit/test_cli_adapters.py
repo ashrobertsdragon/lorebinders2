@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from lorebinders.cli.adapters import build_run_configuration
+from lorebinders.cli.configuration import build_run_configuration
 
 
 def test_build_run_configuration_defaults():

@@ -1,6 +1,18 @@
+from collections.abc import Callable
+from dataclasses import dataclass
 from pathlib import Path
 
 from pydantic import BaseModel, Field
+
+from lorebinders.settings import Settings
+
+
+@dataclass
+class AgentDeps:
+    """Dependencies injected into agents."""
+
+    settings: Settings
+    prompt_loader: Callable[[str], str]
 
 
 class NarratorConfig(BaseModel):
