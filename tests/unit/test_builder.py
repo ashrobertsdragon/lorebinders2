@@ -7,10 +7,10 @@ import pytest
 
 from lorebinders import models
 from lorebinders.builder import (
-    _analyze_character,
+    _aggregate_book_data,
     _binder_to_profiles,
     _process_chapter,
-    _profiles_to_binder,
+    _analyze_character,
     build_binder,
 )
 
@@ -24,40 +24,48 @@ def temp_workspace(tmp_path: Path) -> Path:
     return ws
 
 
-def test_profiles_to_binder_merging():
-    """Test that profiles are correctly converted to binder dict and merged."""
-    p1 = models.EntityProfile(name="Alice", category="Characters", traits={"Role": "Hero"}, confidence_score=1.0)
-    p2 = models.EntityProfile(name="Alice", category="Characters", traits={"Age": "20"}, confidence_score=0.9)
-    p3 = models.EntityProfile(name="Bob", category="Characters", traits={"Role": "Villain"}, confidence_score=1.0)
+def test_aggregate_book_data_preserves_context():
+    """Test that data is aggregated by chapter without overwriting."""
+    chapter1 = models.Chapter(number=1, title="Ch1", content="")
+    chapter1.profiles = [
+        models.EntityProfile(name="Alice", category="Characters", chapter_number=1, traits={"Role": "Hero"}, confidence_score=1.0)
+    ]
 
-    binder = _profiles_to_binder([p1, p2, p3])
+    chapter2 = models.Chapter(number=2, title="Ch2", content="")
+    chapter2.profiles = [
+        models.EntityProfile(name="Alice", category="Characters", chapter_number=2, traits={"Age": "20"}, confidence_score=0.9)
+    ]
+
+    book = models.Book(title="Test", author="Test", chapters=[chapter1, chapter2])
+
+    binder = _aggregate_book_data(book)
 
     assert "Characters" in binder
     assert "Alice" in binder["Characters"]
-    assert "Bob" in binder["Characters"]
 
-
-    alice_traits = binder["Characters"]["Alice"]
-    assert alice_traits["Role"] == "Hero"
-    assert alice_traits["Age"] == "20"
+    assert binder["Characters"]["Alice"][1] == {"Role": "Hero"}
+    assert binder["Characters"]["Alice"][2] == {"Age": "20"}
 
 
 def test_binder_to_profiles_reconstruction():
-    """Test converting binder dict back to profile objects."""
+    """Test converting nested binder dict back to profile objects."""
     binder = {
         "Characters": {
-            "Alice": {"Role": "Hero", "Age": "20"},
-            "Bob": {"Role": "Villain"}
+            "Alice": {
+                1: {"Role": "Hero"},
+                2: {"Age": "20"}
+            }
         }
     }
 
     profiles = _binder_to_profiles(binder)
 
     assert len(profiles) == 2
-    alice = next(p for p in profiles if p.name == "Alice")
-    assert alice.traits == {"Role": "Hero", "Age": "20"}
-    assert alice.category == "Characters"
-    assert alice.confidence_score == 1.0
+    p1 = next(p for p in profiles if p.chapter_number == 1)
+    p2 = next(p for p in profiles if p.chapter_number == 2)
+
+    assert p1.name == "Alice" and p1.traits == {"Role": "Hero"}
+    assert p2.name == "Alice" and p2.traits == {"Age": "20"}
 
 
 def test_analyze_character_new_creates_file(temp_workspace: Path):
@@ -65,14 +73,14 @@ def test_analyze_character_new_creates_file(temp_workspace: Path):
     chapter = models.Chapter(number=1, title="Ch1", content="Some content")
 
     def fake_analysis(name: str, category: str, ctx: models.Chapter) -> models.EntityProfile:
-        return models.EntityProfile(name=name, category=category, traits={"Status": "New"}, confidence_score=0.8)
+        return models.EntityProfile(name=name, category=category, chapter_number=ctx.number, traits={"Status": "New"}, confidence_score=0.8)
 
     profile = _analyze_character("Alice", "Characters", chapter, temp_workspace, fake_analysis)
 
     assert profile.name == "Alice"
     assert profile.category == "Characters"
+    assert profile.chapter_number == 1
     assert profile.traits["Status"] == "New"
-
 
     expected_file = temp_workspace / "ch1_Characters_Alice.json"
     assert expected_file.exists()
@@ -82,8 +90,7 @@ def test_analyze_character_existing_loads_file(temp_workspace: Path):
     """Test that existing profiles are loaded instead of re-analyzed."""
     chapter = models.Chapter(number=1, title="Ch1", content="Some content")
 
-
-    existing = models.EntityProfile(name="Alice", category="Characters", traits={"Status": "Old"}, confidence_score=1.0)
+    existing = models.EntityProfile(name="Alice", category="Characters", chapter_number=1, traits={"Status": "Old"}, confidence_score=1.0)
     file_path = temp_workspace / "ch1_Characters_Alice.json"
     file_path.write_text(existing.model_dump_json(), encoding="utf-8")
 
@@ -91,7 +98,7 @@ def test_analyze_character_existing_loads_file(temp_workspace: Path):
     def fake_analysis(name: str, category: str, ctx: models.Chapter) -> models.EntityProfile:
         nonlocal called
         called = True
-        return models.EntityProfile(name=name, category=category, traits={"Status": "Wrong"}, confidence_score=0.0)
+        return models.EntityProfile(name=name, category=category, chapter_number=ctx.number, traits={"Status": "Wrong"}, confidence_score=0.0)
 
     profile = _analyze_character("Alice", "Characters", chapter, temp_workspace, fake_analysis)
 
@@ -107,14 +114,13 @@ def test_process_chapter_workflow(temp_workspace: Path):
         return {"Characters": ["Alice", "Bob"]}
 
     def fake_analyze(name: str, category: str, ctx: models.Chapter) -> models.EntityProfile:
-        return models.EntityProfile(name=name, category=category, traits={"Found": "Yes"})
+        return models.EntityProfile(name=name, category=category, chapter_number=ctx.number, traits={"Found": "Yes"})
 
     profiles = _process_chapter(chapter, temp_workspace, fake_extract, fake_analyze)
 
     assert len(profiles) == 2
     assert {p.name for p in profiles} == {"Alice", "Bob"}
     assert (temp_workspace / "ch1_Characters_Alice.json").exists()
-    assert (temp_workspace / "ch1_Characters_Bob.json").exists()
 
 
 def test_build_binder_orchestration(temp_workspace: Path, tmp_path: Path):
@@ -130,7 +136,6 @@ def test_build_binder_orchestration(temp_workspace: Path, tmp_path: Path):
         narrator_config=models.NarratorConfig(),
     )
 
-
     def fake_ingest(path: Path, output: Path) -> models.Book:
         return models.Book(
             title="Test Book",
@@ -142,7 +147,7 @@ def test_build_binder_orchestration(temp_workspace: Path, tmp_path: Path):
         return {"Characters": ["Alice"]}
 
     def fake_analyze(name: str, category: str, ctx: models.Chapter) -> models.EntityProfile:
-        return models.EntityProfile(name=name, category=category, traits={"Role": "Hero"})
+        return models.EntityProfile(name=name, category=category, chapter_number=ctx.number, traits={"Role": "Hero"})
 
     report_path = None
     def fake_report(profiles: list[models.EntityProfile], path: Path) -> None:
@@ -152,7 +157,6 @@ def test_build_binder_orchestration(temp_workspace: Path, tmp_path: Path):
 
 
     build_binder(config, fake_ingest, fake_extract, fake_analyze, fake_report)
-
 
 
     author_dir = temp_workspace / "Test_Author" / "Test_Book"

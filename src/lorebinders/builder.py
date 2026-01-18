@@ -12,29 +12,29 @@ from lorebinders.ingestion.workspace import ensure_workspace, sanitize_filename
 from lorebinders.refinement.manager import refine_binder
 
 
-def _profiles_to_binder(
-    profiles: list[models.EntityProfile],
-) -> dict[str, Any]:
-    """Convert list of profiles to binder dict format.
+def _aggregate_book_data(book: models.Book) -> dict[str, Any]:
+    """Aggregate data from all chapters into a binder dict.
+
+    Iterates through the book's chapters and aggregates the profiles
+    stored on each chapter into a nested binder structure.
 
     Args:
-        profiles (list[models.EntityProfile]): The profiles to convert.
+        book: The book containing chapters with profiles.
 
     Returns:
-        dict[str, Any]: The binder dict format.
+        The aggregated binder dict: {Category: {Name: {ChapterNum: Traits}}}
     """
     binder: dict[str, dict[str, Any]] = {}
 
-    for p in profiles:
-        if p.category not in binder:
-            binder[p.category] = {}
+    for chapter in book.chapters:
+        for p in chapter.profiles:
+            if p.category not in binder:
+                binder[p.category] = {}
 
-        if p.name not in binder[p.category]:
-            binder[p.category][p.name] = p.traits
-        else:
-            current = binder[p.category][p.name]
-            if isinstance(current, dict) and isinstance(p.traits, dict):
-                binder[p.category][p.name].update(p.traits)
+            if p.name not in binder[p.category]:
+                binder[p.category][p.name] = {}
+
+            binder[p.category][p.name][chapter.number] = p.traits
 
     return binder
 
@@ -55,14 +55,22 @@ def _binder_to_profiles(
         if isinstance(entities, dict):
             for name, data in entities.items():
                 if isinstance(data, dict):
-                    profiles.append(
-                        models.EntityProfile(
-                            name=name,
-                            category=category,
-                            traits=data,
-                            confidence_score=1.0,
-                        )
-                    )
+                    for chapter, traits in data.items():
+                        try:
+                            chap_num = int(chapter)
+                        except (ValueError, TypeError):
+                            continue
+
+                        if isinstance(traits, dict):
+                            profiles.append(
+                                models.EntityProfile(
+                                    name=name,
+                                    category=category,
+                                    chapter_number=chap_num,
+                                    traits=traits,
+                                    confidence_score=1.0,
+                                )
+                            )
     return profiles
 
 
@@ -146,15 +154,12 @@ def build_binder(
 
     book = ingestion(config.book_path, output_dir)
 
-    all_profiles: list[models.EntityProfile] = []
-
     for chapter in book.chapters:
-        chapter_profiles = _process_chapter(
+        chapter.profiles = _process_chapter(
             chapter, profiles_dir, extraction, analysis
         )
-        all_profiles.extend(chapter_profiles)
 
-    raw_binder = _profiles_to_binder(all_profiles)
+    raw_binder = _aggregate_book_data(book)
 
     narrator_name = (
         config.narrator_config.name if config.narrator_config else None

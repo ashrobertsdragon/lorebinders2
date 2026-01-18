@@ -130,6 +130,7 @@ def create_analyzer(
         return EntityProfile(
             name=result.entity_name,
             category=category,
+            chapter_number=context.number,
             traits=profile_traits,
             confidence_score=0.8,
         )
