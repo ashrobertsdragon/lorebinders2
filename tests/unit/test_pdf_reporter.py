@@ -5,7 +5,7 @@ from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
-from lorebinders.models import Book, CharacterProfile, Chapter
+from lorebinders.models import Book, EntityProfile, Chapter
 from lorebinders.reporting.pdf import generate_pdf_report
 
 @pytest.fixture
@@ -15,8 +15,9 @@ def dummy_data():
         author="Test Author",
         chapters=[Chapter(number=1, title="Ch1", content="Content")]
     )
-    profile = CharacterProfile(
+    profile = EntityProfile(
         name="Protagonist",
+        category="Characters",
         traits={"Role": "Hero", "Personality": "Brave"},
         confidence_score=0.9
     )

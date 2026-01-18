@@ -6,7 +6,8 @@ from lorebinders.models import (
     RunConfiguration,
     Chapter,
     Book,
-    CharacterProfile
+    Book,
+    EntityProfile
 )
 
 def test_narrator_config_validation():
@@ -28,7 +29,7 @@ def test_run_configuration_validation():
         author_name="Test Author",
         book_title="Test Book",
         narrator_config=narrator,
-        custom_traits=["brave"],
+        custom_traits={"Characters": ["brave"]},
         custom_categories=["personality"]
     )
     assert config.author_name == "Test Author"
@@ -39,7 +40,7 @@ def test_run_configuration_validation():
             book_path=Path("./book.epub"),
             book_title="Test Book",
             narrator_config=narrator,
-            custom_traits=[],
+            custom_traits={},
             custom_categories=[]
         )
 
@@ -72,10 +73,11 @@ def test_book_model():
     assert book.chapters[0].title == "One"
     assert book.chapters[1].number == 2
 
-def test_character_profile_model():
-    """Verify CharacterProfile structure."""
-    profile = CharacterProfile(
+def test_entity_profile_model():
+    """Verify EntityProfile structure."""
+    profile = EntityProfile(
         name="Sherlock",
+        category="Characters",
         traits={"intelligence": "High", "brave": "Yes"},
         confidence_score=0.95
     )

@@ -5,7 +5,7 @@ import typer
 from rich.console import Console
 
 from lorebinders import app
-from lorebinders.models import NarratorConfig, RunConfiguration
+from lorebinders.cli.adapters import build_run_configuration
 
 cli = typer.Typer(no_args_is_help=True)
 console = Console()
@@ -40,19 +40,15 @@ def main(
         typer.Option("--category", help="Custom category to track"),
     ] = None,
 ) -> None:
-    """LoreBinders: Create a Series Bible from your book."""
-    narrator_config = NarratorConfig(
-        is_3rd_person=is_3rd_person,
-        name=narrator_name,
-    )
-
-    config = RunConfiguration(
+    """LoreBinders: Create a Story Bible from your book."""
+    config = build_run_configuration(
         book_path=book_path,
         author_name=author_name,
         book_title=book_title,
-        narrator_config=narrator_config,
-        custom_traits=traits or [],
-        custom_categories=categories or [],
+        narrator_name=narrator_name,
+        is_3rd_person=is_3rd_person,
+        traits=traits,
+        categories=categories,
     )
 
     console.print("[bold blue]Starting LoreBinders...[/bold blue]")

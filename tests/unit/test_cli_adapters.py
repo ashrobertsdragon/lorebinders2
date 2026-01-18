@@ -1,0 +1,56 @@
+from pathlib import Path
+
+from lorebinders.cli.adapters import build_run_configuration
+
+
+def test_build_run_configuration_defaults():
+    config = build_run_configuration(
+        book_path=Path("test.epub"),
+        author_name="Author",
+        book_title="Title",
+        narrator_name=None,
+        is_3rd_person=True,
+        traits=None,
+        categories=None,
+    )
+
+    assert config.book_path == Path("test.epub")
+    assert config.custom_traits == {}
+    assert config.custom_categories == []
+
+
+def test_build_run_configuration_flat_traits():
+    config = build_run_configuration(
+        book_path=Path("test.epub"),
+        author_name="Author",
+        book_title="Title",
+        narrator_name=None,
+        is_3rd_person=True,
+        traits=["Trait1", "Trait2"],
+        categories=None,
+    )
+
+    assert config.custom_traits == {"Characters": ["Trait1", "Trait2"]}
+
+
+def test_build_run_configuration_namespaced_traits():
+    config = build_run_configuration(
+        book_path=Path("test.epub"),
+        author_name="Author",
+        book_title="Title",
+        narrator_name=None,
+        is_3rd_person=True,
+        traits=["Trait1", "Locations:Atmosphere", "Beasts:Ferocity"],
+        categories=["Beasts"],
+    )
+
+    assert "Characters" in config.custom_traits
+    assert "Trait1" in config.custom_traits["Characters"]
+
+    assert "Locations" in config.custom_traits
+    assert "Atmosphere" in config.custom_traits["Locations"]
+
+    assert "Beasts" in config.custom_traits
+    assert "Ferocity" in config.custom_traits["Beasts"]
+
+    assert "Beasts" in config.custom_categories

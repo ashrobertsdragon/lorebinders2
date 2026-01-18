@@ -13,63 +13,71 @@ from lorebinders.refinement.manager import refine_binder
 
 
 def _profiles_to_binder(
-    profiles: list[models.CharacterProfile],
+    profiles: list[models.EntityProfile],
 ) -> dict[str, Any]:
     """Convert list of profiles to binder dict format.
 
     Args:
-        profiles (list[models.CharacterProfile]): The profiles to convert.
+        profiles (list[models.EntityProfile]): The profiles to convert.
 
     Returns:
         dict[str, Any]: The binder dict format.
     """
-    binder: dict[str, dict[str, Any]] = {"Characters": {}}
+    binder: dict[str, dict[str, Any]] = {}
 
     for p in profiles:
-        if p.name not in binder["Characters"]:
-            binder["Characters"][p.name] = p.traits
-        else:
-            current = binder["Characters"][p.name]
+        if p.category not in binder:
+            binder[p.category] = {}
 
+        if p.name not in binder[p.category]:
+            binder[p.category][p.name] = p.traits
+        else:
+            current = binder[p.category][p.name]
             if isinstance(current, dict) and isinstance(p.traits, dict):
-                binder["Characters"][p.name].update(p.traits)
+                binder[p.category][p.name].update(p.traits)
 
     return binder
 
 
 def _binder_to_profiles(
     binder: dict[str, Any],
-) -> list[models.CharacterProfile]:
+) -> list[models.EntityProfile]:
     """Convert binder dict format back to list of profiles.
 
     Args:
         binder (dict[str, Any]): The binder dict format.
 
     Returns:
-        list[models.CharacterProfile]: The list of profiles.
+        list[models.EntityProfile]: The list of profiles.
     """
     profiles = []
-    if "Characters" in binder and isinstance(binder["Characters"], dict):
-        for name, data in binder["Characters"].items():
-            if isinstance(data, dict):
-                profiles.append(
-                    models.CharacterProfile(
-                        name=name, traits=data, confidence_score=1.0
+    for category, entities in binder.items():
+        if isinstance(entities, dict):
+            for name, data in entities.items():
+                if isinstance(data, dict):
+                    profiles.append(
+                        models.EntityProfile(
+                            name=name,
+                            category=category,
+                            traits=data,
+                            confidence_score=1.0,
+                        )
                     )
-                )
     return profiles
 
 
 def _analyze_character(
     name: str,
+    category: str,
     chapter: models.Chapter,
     profiles_dir: Path,
-    analysis_fn: Callable[[str, models.Chapter], models.CharacterProfile],
-) -> models.CharacterProfile:
-    """Analyze a single character, checking persistence first.
+    analysis_fn: Callable[[str, str, models.Chapter], models.EntityProfile],
+) -> models.EntityProfile:
+    """Analyze a single entity, checking persistence first.
 
     Args:
-        name: The name of the character.
+        name: The name of the entity.
+        category: The category of the entity.
         chapter: The chapter context.
         profiles_dir: Directory for persistence.
         analysis_fn: Function to perform analysis.
@@ -77,10 +85,10 @@ def _analyze_character(
     Returns:
         The analyzed profile.
     """
-    if profile_exists(profiles_dir, chapter.number, name):
-        return load_profile(profiles_dir, chapter.number, name)
+    if profile_exists(profiles_dir, chapter.number, category, name):
+        return load_profile(profiles_dir, chapter.number, category, name)
 
-    profile = analysis_fn(name, chapter)
+    profile = analysis_fn(name, category, chapter)
 
     save_profile(profiles_dir, chapter.number, profile)
     return profile
@@ -89,26 +97,29 @@ def _analyze_character(
 def _process_chapter(
     chapter: models.Chapter,
     profiles_dir: Path,
-    extraction_fn: Callable[[models.Chapter], list[str]],
-    analysis_fn: Callable[[str, models.Chapter], models.CharacterProfile],
-) -> list[models.CharacterProfile]:
-    """Process a single chapter: extract and analyze characters.
+    extraction_fn: Callable[[models.Chapter], dict[str, list[str]]],
+    analysis_fn: Callable[[str, str, models.Chapter], models.EntityProfile],
+) -> list[models.EntityProfile]:
+    """Process a single chapter: extract and analyze entities.
 
     Args:
         chapter: The chapter to process.
         profiles_dir: Directory for persistence.
-        extraction_fn: Function to extract entities.
+        extraction_fn: Function to extract entities (Category -> Names).
         analysis_fn: Function to analyze entities.
 
     Returns:
-        A list of character profiles found in this chapter.
+        A list of entity profiles found in this chapter.
     """
-    names = extraction_fn(chapter)
+    extracted_data = extraction_fn(chapter)
 
     chapter_profiles = []
-    for name in names:
-        profile = _analyze_character(name, chapter, profiles_dir, analysis_fn)
-        chapter_profiles.append(profile)
+    for category, names in extracted_data.items():
+        for name in names:
+            profile = _analyze_character(
+                name, category, chapter, profiles_dir, analysis_fn
+            )
+            chapter_profiles.append(profile)
 
     return chapter_profiles
 
@@ -116,9 +127,9 @@ def _process_chapter(
 def build_binder(
     config: models.RunConfiguration,
     ingestion: Callable[[Path, Path], models.Book],
-    extraction: Callable[[models.Chapter], list[str]],
-    analysis: Callable[[str, models.Chapter], models.CharacterProfile],
-    reporting: Callable[[list[models.CharacterProfile], Path], None],
+    extraction: Callable[[models.Chapter], dict[str, list[str]]],
+    analysis: Callable[[str, str, models.Chapter], models.EntityProfile],
+    reporting: Callable[[list[models.EntityProfile], Path], None],
 ) -> None:
     """Execute the LoreBinders build pipeline.
 
@@ -135,7 +146,7 @@ def build_binder(
 
     book = ingestion(config.book_path, output_dir)
 
-    all_profiles: list[models.CharacterProfile] = []
+    all_profiles: list[models.EntityProfile] = []
 
     for chapter in book.chapters:
         chapter_profiles = _process_chapter(
