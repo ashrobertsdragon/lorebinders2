@@ -39,6 +39,33 @@ def _aggregate_book_data(book: models.Book) -> dict[str, Any]:
     return binder
 
 
+def _extract_profiles_from_entity(
+    name: str, category: str, data: dict[str, Any]
+) -> list[models.EntityProfile]:
+    """Extract profiles from a single entity's chapter data.
+
+    Returns:
+        A list of EntityProfile objects for the entity.
+    """
+    profiles = []
+    for chapter, traits in data.items():
+        try:
+            chap_num = int(chapter)
+        except (ValueError, TypeError):
+            continue
+        if isinstance(traits, dict):
+            profiles.append(
+                models.EntityProfile(
+                    name=name,
+                    category=category,
+                    chapter_number=chap_num,
+                    traits=traits,
+                    confidence_score=1.0,
+                )
+            )
+    return profiles
+
+
 def _binder_to_profiles(
     binder: dict[str, Any],
 ) -> list[models.EntityProfile]:
@@ -52,25 +79,13 @@ def _binder_to_profiles(
     """
     profiles = []
     for category, entities in binder.items():
-        if isinstance(entities, dict):
-            for name, data in entities.items():
-                if isinstance(data, dict):
-                    for chapter, traits in data.items():
-                        try:
-                            chap_num = int(chapter)
-                        except (ValueError, TypeError):
-                            continue
-
-                        if isinstance(traits, dict):
-                            profiles.append(
-                                models.EntityProfile(
-                                    name=name,
-                                    category=category,
-                                    chapter_number=chap_num,
-                                    traits=traits,
-                                    confidence_score=1.0,
-                                )
-                            )
+        if not isinstance(entities, dict):
+            continue
+        for name, data in entities.items():
+            if isinstance(data, dict):
+                profiles.extend(
+                    _extract_profiles_from_entity(name, category, data)
+                )
     return profiles
 
 

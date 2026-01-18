@@ -128,6 +128,42 @@ def standardize_location(name: str) -> str:
     return LOCATION_SUFFIX_PATTERN.sub("", name).strip()
 
 
+def _clean_entity_name(name: str, category: str) -> str:
+    """Clean an entity name based on its category.
+
+    Returns:
+        The cleaned entity name.
+    """
+    match category.lower():
+        case "settings":
+            return standardize_location(name)
+        case "characters":
+            return remove_titles(name)
+    return name
+
+
+def _process_category_entities(
+    entities: dict[str, Any], category: str
+) -> dict[str, Any]:
+    """Process all entities in a category.
+
+    Cleans names and merges duplicates.
+
+    Returns:
+        The processed entities dictionary.
+    """
+    new_entities: dict[str, Any] = {}
+    for name, details in entities.items():
+        clean_name = _clean_entity_name(name, category)
+        if clean_name in new_entities:
+            new_entities[clean_name] = merge_values(
+                new_entities[clean_name], details
+            )
+        else:
+            new_entities[clean_name] = details
+    return new_entities
+
+
 def clean_binder(
     binder: dict[str, Any], narrator_name: str | None
 ) -> dict[str, Any]:
@@ -145,22 +181,7 @@ def clean_binder(
 
     binder = clean_none_found(binder)
 
-    final_binder: dict[str, Any] = {}
-    for category, entities in binder.items():
-        new_entities: dict[str, Any] = {}
-        for name, details in entities.items():
-            clean_name = name
-            if category.lower() == "settings":
-                clean_name = standardize_location(name)
-            elif category.lower() == "characters":
-                clean_name = remove_titles(name)
-
-            if clean_name in new_entities:
-                new_entities[clean_name] = merge_values(
-                    new_entities[clean_name], details
-                )
-            else:
-                new_entities[clean_name] = details
-        final_binder[category] = new_entities
-
-    return final_binder
+    return {
+        category: _process_category_entities(entities, category)
+        for category, entities in binder.items()
+    }

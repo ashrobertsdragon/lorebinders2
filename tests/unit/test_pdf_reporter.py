@@ -18,6 +18,7 @@ def dummy_data():
     profile = EntityProfile(
         name="Protagonist",
         category="Characters",
+        chapter_number=1,
         traits={"Role": "Hero", "Personality": "Brave"},
         confidence_score=0.9
     )

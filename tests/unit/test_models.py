@@ -78,6 +78,7 @@ def test_entity_profile_model():
     profile = EntityProfile(
         name="Sherlock",
         category="Characters",
+        chapter_number=1,
         traits={"intelligence": "High", "brave": "Yes"},
         confidence_score=0.95
     )
