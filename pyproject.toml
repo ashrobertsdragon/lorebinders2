@@ -9,15 +9,15 @@ authors = [{ name = "Ashlynn Antrobus", email = "ashlynn@prosepal.io" }]
 keywords = ["AI", "fiction", "manuscript", "story bible", "writing"]
 classifiers = [
     "Development Status :: 3 - Alpha",
-    "Environment :: Console",
     "Intended Audience :: Other Audience",
-    "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3 :: Only",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Programming Language :: Python",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
     "Topic :: Text Processing",
@@ -30,16 +30,21 @@ dependencies = [
     "pydantic-ai>=1.41.0",
     "python-dotenv>=1.2.1",
     "reportlab>=4.4.7",
-    "rich>=14.2.0",
-    "typer>=0.21.1",
     "typing-extensions>=4.15.0",
 ]
 
 [project.scripts]
-lorebinders = "lorebinders:main"
+lorebinders = "lorebinders.app:run"
+lorebinders-cli = "lorebinders.cli:cli"
 
 [project.urls]
 "Homepage" = "https://prosepal.io"
+
+[project.optional-dependencies]
+cli = [
+    "rich>=14.2.0",
+    "typer>=0.21.1",
+]
 
 [build-system]
 requires = ["uv_build>=0.9.18,<0.10.0"]
