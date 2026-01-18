@@ -12,7 +12,6 @@ from lorebinders.agent import (
     load_prompt_from_assets,
     run_agent,
 )
-from lorebinders.builder import build_binder
 from lorebinders.ingestion.conversion import ingest
 from lorebinders.models import (
     AgentDeps,
@@ -23,6 +22,7 @@ from lorebinders.models import (
 from lorebinders.reporting.pdf import generate_pdf_report
 from lorebinders.settings import Settings, get_settings
 from lorebinders.storage.workspace import ensure_workspace, sanitize_filename
+from lorebinders.workflow import build_binder
 
 
 def merge_traits(

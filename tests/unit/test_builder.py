@@ -6,7 +6,7 @@ from typing import Any
 import pytest
 
 from lorebinders import models
-from lorebinders.builder import (
+from lorebinders.workflow import (
     _aggregate_book_data,
     _binder_to_profiles,
     _process_chapter,
