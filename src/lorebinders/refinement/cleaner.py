@@ -68,7 +68,7 @@ def clean_none_found(data: dict[str, Any]) -> dict[str, Any]:
     """
     cleaned: dict[str, Any] = {}
     for key, value in data.items():
-        if key.lower().strip() == "none found":
+        if isinstance(key, str) and key.lower().strip() == "none found":
             continue
 
         if isinstance(value, dict):

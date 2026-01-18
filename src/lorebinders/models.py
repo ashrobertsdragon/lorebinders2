@@ -27,6 +27,7 @@ class Chapter(BaseModel):
     number: int
     title: str
     content: str
+    profiles: list["EntityProfile"] = Field(default_factory=list)
 
 
 class Book(BaseModel):
@@ -42,7 +43,8 @@ class EntityProfile(BaseModel):
 
     name: str
     category: str
-    traits: dict[str, str] = Field(
+    chapter_number: int
+    traits: dict[str, str | list[str]] = Field(
         default_factory=dict, description="Map of trait keys to analysis values"
     )
     confidence_score: float = Field(default=0.0, ge=0.0, le=1.0)
