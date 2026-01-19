@@ -33,7 +33,7 @@ def test_e2e_ingestion_flow(
     source_file = tmp_path / "genesis.txt"
     source_file.write_text(book_content)
 
-    cleanup_target = Path.cwd() / "work" / "Test-Author"
+    cleanup_target = Path.cwd() / "work" / "Test_Author"
 
     summarizer_result = SummarizerResult(
         entity_name="Night", summary="A dark and stormy night."
