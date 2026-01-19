@@ -1,6 +1,4 @@
 import json
-from pathlib import Path
-from collections.abc import Callable
 
 import pytest
 from pydantic_ai.messages import ModelMessage, ModelResponse, TextPart
@@ -35,10 +33,10 @@ def test_config(tmp_path):
     )
 
 
-def test_create_extractor(test_config, test_deps):
-    """Test create_extractor logic with FunctionModel."""
-    async def test_extract(messages: list[ModelMessage], info: object) -> ModelResponse:
-
+def test_create_extractor(test_config, test_deps) -> None:
+    def test_extract(
+        messages: list[ModelMessage], info: object
+    ) -> ModelResponse:
         found = False
         for msg in messages:
             for part in msg.parts:
@@ -48,25 +46,36 @@ def test_create_extractor(test_config, test_deps):
         assert found, f"User prompt not found in messages: {messages}"
 
         return ModelResponse(
-             parts=[TextPart(content=json.dumps({"response": ["Alice", "Bob"]}))]
+            parts=[
+                TextPart(
+                    content=json.dumps(
+                        {"response": {"Characters": ["Alice", "Bob"]}}
+                    )
+                )
+            ]
         )
 
     agent = create_extraction_agent(test_deps.settings)
 
     with agent.override(model=FunctionModel(test_extract)):
+        extractor = create_extractor(
+            test_config, agent, test_deps, categories=["Characters"]
+        )
 
-        extractor = create_extractor(test_config, agent, test_deps, categories=["Characters"])
-
-        chapter = models.Chapter(number=1, title="Ch1", content="Some chapter content")
+        chapter = models.Chapter(
+            number=1, title="Ch1", content="Some chapter content"
+        )
         results = extractor(chapter)
 
         assert results == {"Characters": ["Alice", "Bob"]}
 
 
-def test_create_analyzer(test_config, test_deps):
+def test_create_analyzer(test_config, test_deps) -> None:
     """Test create_analyzer logic with FunctionModel."""
-    async def test_analyze(messages: list[ModelMessage], info: object) -> ModelResponse:
 
+    def test_analyze(
+        messages: list[ModelMessage], info: object
+    ) -> ModelResponse:
         found = False
         for msg in messages:
             for part in msg.parts:
@@ -82,19 +91,27 @@ def test_create_analyzer(test_config, test_deps):
                 {"trait": "Role", "value": "Protagonist", "evidence": "text"},
             ],
         }
-        return ModelResponse(parts=[TextPart(content=json.dumps(result))])
+        return ModelResponse(
+            parts=[TextPart(content=json.dumps({"response": [result]}))]
+        )
 
     agent = create_analysis_agent(test_deps.settings)
 
     with agent.override(model=FunctionModel(test_analyze)):
-
         traits_map = {"Characters": ["Role"]}
-        analyzer = create_analyzer(test_config, agent, test_deps, effective_traits=traits_map)
+        analyzer = create_analyzer(
+            test_config, agent, test_deps, effective_traits=traits_map
+        )
 
         chapter = models.Chapter(number=1, title="Ch1", content="Context")
 
-        profile = analyzer("Alice", "Characters", chapter)
+        entities: list[models.EntityTarget] = [
+            models.EntityTarget(name="Alice", category="Characters")
+        ]
+        profiles = analyzer(entities, chapter)
 
+        assert len(profiles) == 1
+        profile = profiles[0]
         assert profile.name == "Alice"
         assert profile.category == "Characters"
         assert profile.traits["Role"] == "Protagonist"

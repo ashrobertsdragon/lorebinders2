@@ -1,30 +1,29 @@
 """Unit tests for the PDF reporter."""
 
-import shutil
-from pathlib import Path
-from unittest.mock import MagicMock
-
 import pytest
-from lorebinders.models import Book, EntityProfile, Chapter
+
+from lorebinders.models import Book, Chapter, EntityProfile
 from lorebinders.reporting.pdf import generate_pdf_report
+
 
 @pytest.fixture
 def dummy_data():
-    book = Book(
+    Book(
         title="Test Book",
         author="Test Author",
-        chapters=[Chapter(number=1, title="Ch1", content="Content")]
+        chapters=[Chapter(number=1, title="Ch1", content="Content")],
     )
     profile = EntityProfile(
         name="Protagonist",
         category="Characters",
         chapter_number=1,
         traits={"Role": "Hero", "Personality": "Brave"},
-        confidence_score=0.9
+        confidence_score=0.9,
     )
     return [profile]
 
-def test_generate_pdf_creates_file(dummy_data, tmp_path):
+
+def test_generate_pdf_creates_file(dummy_data, tmp_path) -> None:
     """Test that the PDF generation creates a valid file."""
     output_path = tmp_path / "report.pdf"
     generate_pdf_report(dummy_data, output_path)

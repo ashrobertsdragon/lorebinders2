@@ -1,6 +1,5 @@
 from collections.abc import Callable
 from pathlib import Path
-from typing import Any
 
 from pydantic_ai import Agent
 
@@ -15,8 +14,10 @@ from lorebinders.agent import (
 from lorebinders.ingestion.conversion import ingest
 from lorebinders.models import (
     AgentDeps,
+    AnalysisResult,
     Chapter,
     EntityProfile,
+    EntityTarget,
     RunConfiguration,
 )
 from lorebinders.reporting.pdf import generate_pdf_report
@@ -61,7 +62,7 @@ def merge_traits(
 
 def create_extractor(
     config: RunConfiguration,
-    agent: Agent[AgentDeps, list[str]],
+    agent: Agent[AgentDeps, dict[str, list[str]]],
     deps: AgentDeps,
     categories: list[str],
 ) -> Callable[[Chapter], dict[str, list[str]]]:
@@ -78,28 +79,22 @@ def create_extractor(
     """
 
     def extract(chapter: Chapter) -> dict[str, list[str]]:
-        results: dict[str, list[str]] = {}
-        for category in categories:
-            prompt = build_extraction_user_prompt(
-                text=chapter.content,
-                target_category=category,
-                description=None,
-                narrator=config.narrator_config,
-            )
-
-            names = run_agent(agent, prompt, deps)
-            results[category] = names
-        return results
+        prompt = build_extraction_user_prompt(
+            text=chapter.content,
+            categories=categories,
+            narrator=config.narrator_config,
+        )
+        return run_agent(agent, prompt, deps)
 
     return extract
 
 
 def create_analyzer(
     config: RunConfiguration,
-    agent: Agent[AgentDeps, Any],
+    agent: Agent[AgentDeps, list[AnalysisResult]],
     deps: AgentDeps,
     effective_traits: dict[str, list[str]],
-) -> Callable[[str, str, Chapter], EntityProfile]:
+) -> Callable[[list[EntityTarget], Chapter], list[EntityProfile]]:
     """Create an analysis function.
 
     Args:
@@ -109,31 +104,47 @@ def create_analyzer(
         effective_traits: Map of category -> traits.
 
     Returns:
-        A callable that analyzes an entity.
+        A callable that analyzes a batch of entities.
     """
 
-    def analyze(name: str, category: str, context: Chapter) -> EntityProfile:
-        traits = effective_traits.get(category, [])
-        if not traits:
-            traits = ["Description", "Role"]
+    def analyze(
+        entities: list[EntityTarget], context: Chapter
+    ) -> list[EntityProfile]:
+        enriched: list[EntityTarget] = []
+        for entity in entities:
+            cat = entity["category"]
+            traits = effective_traits.get(cat, [])
+            if not traits:
+                traits = ["Description", "Role"]
+
+            enriched.append(
+                {
+                    "name": entity["name"],
+                    "category": cat,
+                    "traits": traits,
+                }
+            )
 
         full_prompt = build_analysis_user_prompt(
             context_text=context.content,
-            entity_name=name,
-            category=category,
-            traits=traits,
+            entities=enriched,
         )
 
-        result = run_agent(agent, full_prompt, deps)
-        profile_traits = {t.trait: t.value for t in result.traits}
+        results = run_agent(agent, full_prompt, deps)
 
-        return EntityProfile(
-            name=result.entity_name,
-            category=category,
-            chapter_number=context.number,
-            traits=profile_traits,
-            confidence_score=0.8,
-        )
+        profiles = []
+        for r in results:
+            profile_traits = {t.trait: t.value for t in r.traits}
+            profiles.append(
+                EntityProfile(
+                    name=r.entity_name,
+                    category=r.category,
+                    chapter_number=context.number,
+                    traits=profile_traits,
+                    confidence_score=0.8,
+                )
+            )
+        return profiles
 
     return analyze
 

@@ -1,16 +1,18 @@
-import pytest
 from pathlib import Path
+
+import pytest
 from pydantic import ValidationError
+
 from lorebinders.models import (
+    Book,
+    Chapter,
+    EntityProfile,
     NarratorConfig,
     RunConfiguration,
-    Chapter,
-    Book,
-    Book,
-    EntityProfile
 )
 
-def test_narrator_config_validation():
+
+def test_narrator_config_validation() -> None:
     """Verify NarratorConfig defaults and optional fields."""
     config = NarratorConfig(is_3rd_person=True)
     assert config.is_3rd_person is True
@@ -20,7 +22,8 @@ def test_narrator_config_validation():
     assert config.is_3rd_person is False
     assert config.name == "Watson"
 
-def test_run_configuration_validation():
+
+def test_run_configuration_validation() -> None:
     """Verify RunConfiguration requires specific fields and handles defaults."""
     narrator = NarratorConfig(is_3rd_person=True)
 
@@ -30,7 +33,7 @@ def test_run_configuration_validation():
         book_title="Test Book",
         narrator_config=narrator,
         custom_traits={"Characters": ["brave"]},
-        custom_categories=["personality"]
+        custom_categories=["personality"],
     )
     assert config.author_name == "Test Author"
     assert config.book_path == Path("./book.epub")
@@ -41,15 +44,14 @@ def test_run_configuration_validation():
             book_title="Test Book",
             narrator_config=narrator,
             custom_traits={},
-            custom_categories=[]
+            custom_categories=[],
         )
 
-def test_chapter_model():
+
+def test_chapter_model() -> None:
     """Verify Chapter model data integrity."""
     chapter = Chapter(
-        number=1,
-        title="The Beginning",
-        content="Once upon a time..."
+        number=1, title="The Beginning", content="Once upon a time..."
     )
     assert chapter.number == 1
     assert chapter.title == "The Beginning"
@@ -58,29 +60,27 @@ def test_chapter_model():
     with pytest.raises(ValidationError):
         Chapter(number="one", title="Title", content="Content")
 
-def test_book_model():
+
+def test_book_model() -> None:
     """Verify Book model acts as a container for Chapters."""
     ch1 = Chapter(number=1, title="One", content="Content 1")
     ch2 = Chapter(number=2, title="Two", content="Content 2")
 
-    book = Book(
-        title="My Book",
-        author="Me",
-        chapters=[ch1, ch2]
-    )
+    book = Book(title="My Book", author="Me", chapters=[ch1, ch2])
 
     assert len(book.chapters) == 2
     assert book.chapters[0].title == "One"
     assert book.chapters[1].number == 2
 
-def test_entity_profile_model():
+
+def test_entity_profile_model() -> None:
     """Verify EntityProfile structure."""
     profile = EntityProfile(
         name="Sherlock",
         category="Characters",
         chapter_number=1,
         traits={"intelligence": "High", "brave": "Yes"},
-        confidence_score=0.95
+        confidence_score=0.95,
     )
 
     assert profile.name == "Sherlock"

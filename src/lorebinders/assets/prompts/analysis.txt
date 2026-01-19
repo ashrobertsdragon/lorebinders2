@@ -1,10 +1,9 @@
 You are an expert literary analyst.
-Your task is to analyze the entity specified in the request based on the provided text chunk.
+Your task is to analyze the entities specified in the request based on the provided text chunk.
 
-Extract the requested traits.
+For each entity:
+1. Extract the requested traits.
+2. For each trait, provide the value (concise description) and evidence (direct quote or reference).
+3. If a trait is not found, return 'Not Found' for value and empty string for evidence.
 
-For each trait, provide:
-1. The value (concise description)
-2. The evidence (direct quote or reference)
-
-If a trait is not found, return 'Not Found' for value and empty string for evidence.
+Return a list of analysis results, one for each requested entity.

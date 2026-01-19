@@ -1,10 +1,26 @@
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
+from typing import TypedDict
 
 from pydantic import BaseModel, Field
+from typing_extensions import NotRequired
 
 from lorebinders.settings import Settings
+
+
+class EntityTarget(TypedDict):
+    """Target entity for batch analysis."""
+
+    name: str
+    category: str
+    traits: NotRequired[list[str]]
+
+
+TraitDict = dict[str, str | list[str]]
+EntityChapterData = dict[int, TraitDict]
+EntityData = dict[str, EntityChapterData]
+Binder = dict[str, EntityData]
 
 
 @dataclass

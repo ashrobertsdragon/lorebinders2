@@ -1,6 +1,6 @@
 """Agent package for AI interaction logic."""
 
-from lorebinders.agent.core import (
+from lorebinders.agent.factory import (
     build_analysis_user_prompt,
     build_extraction_user_prompt,
     build_summarization_user_prompt,
