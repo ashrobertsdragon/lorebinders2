@@ -81,9 +81,32 @@ class EntityProfile(BaseModel):
 class ExtractionConfig(BaseModel):
     """Configuration for the entity extraction agent."""
 
-    target_category: str
+    target_categories: list[str]
     description: str | None = None
     narrator: NarratorConfig | None = None
+
+
+class CategoryEntities(BaseModel):
+    """Entities extracted for a single category."""
+
+    category: str = Field(description="Category name (e.g. 'Characters')")
+    entities: list[str] = Field(
+        default_factory=list,
+        description="List of entity names found in this category",
+    )
+
+
+class ExtractionResult(BaseModel):
+    """Result of entity extraction."""
+
+    results: list[CategoryEntities] = Field(
+        default_factory=list,
+        description="List of categories with their extracted entity names",
+    )
+
+    def to_dict(self) -> dict[str, list[str]]:
+        """Convert results list to category→entities dictionary."""
+        return {item.category: item.entities for item in self.results}
 
 
 class AnalysisConfig(BaseModel):

@@ -1,9 +1,2 @@
 You are an expert literary analyst.
-Your task is to extract all entities matching EACH of the specified categories from the provided text chunk.
-
-For each category, return a list of entity names/identifiers.
-Be as brief as possible, using one or two words for each entry.
-Avoid descriptions; extract only names.
-
-Return a JSON object mapping each category to its list of entities.
-Example: {"Characters": ["John", "Mary"], "Locations": ["Castle", "Forest"]}
+Your task is to extract all entities matching EACH of the specified categories from the provided text chunk without *any* additional information, description, or context, just one-to-two words per entity.

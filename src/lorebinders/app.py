@@ -18,6 +18,7 @@ from lorebinders.models import (
     Chapter,
     EntityProfile,
     EntityTarget,
+    ExtractionResult,
     RunConfiguration,
 )
 from lorebinders.reporting.pdf import generate_pdf_report
@@ -62,7 +63,7 @@ def merge_traits(
 
 def create_extractor(
     config: RunConfiguration,
-    agent: Agent[AgentDeps, dict[str, list[str]]],
+    agent: Agent[AgentDeps, ExtractionResult],
     deps: AgentDeps,
     categories: list[str],
 ) -> Callable[[Chapter], dict[str, list[str]]]:
@@ -84,7 +85,8 @@ def create_extractor(
             categories=categories,
             narrator=config.narrator_config,
         )
-        return run_agent(agent, prompt, deps)
+        result = run_agent(agent, prompt, deps)
+        return result.to_dict()
 
     return extract
 
