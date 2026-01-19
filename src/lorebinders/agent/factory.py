@@ -8,6 +8,7 @@ from lorebinders.models import (
     AgentDeps,
     AnalysisResult,
     EntityTarget,
+    ExtractionResult,
     NarratorConfig,
     SummarizerResult,
 )
@@ -68,7 +69,7 @@ def run_agent(
 
 def create_extraction_agent(
     settings: Settings | None = None,
-) -> Agent[AgentDeps, dict[str, list[str]]]:
+) -> Agent[AgentDeps, ExtractionResult]:
     """Create a configured extraction agent.
 
     Args:
@@ -81,7 +82,7 @@ def create_extraction_agent(
     agent = create_agent(
         settings.extraction_model,
         deps_type=AgentDeps,
-        output_type=dict[str, list[str]],
+        output_type=ExtractionResult,
     )
 
     @agent.system_prompt

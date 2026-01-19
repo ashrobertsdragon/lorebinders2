@@ -11,7 +11,11 @@ from tests.conftest import create_mock_model, get_system_prompt
 
 def test_extraction_agent_run_sync_and_prompt() -> None:
     mock_model, captured_messages = create_mock_model(
-        {"response": {"Characters": ["Hero", "Villain"]}}
+        {
+            "results": [
+                {"category": "Characters", "entities": ["Hero", "Villain"]}
+            ]
+        }
     )
 
     agent = create_extraction_agent()
@@ -24,12 +28,12 @@ def test_extraction_agent_run_sync_and_prompt() -> None:
         prompt = build_extraction_user_prompt(
             text="The Hero fought the Villain.",
             categories=["Characters"],
-            narrator=NarratorConfig(is_3rd_person=True),
+            narrator=NarratorConfig(is_1st_person=False),
         )
 
         result = run_agent(agent, prompt, deps)
 
-        assert result == {"Characters": ["Hero", "Villain"]}
+        assert result.to_dict() == {"Characters": ["Hero", "Villain"]}
 
     system_prompt_content = get_system_prompt(captured_messages)
 

@@ -5,5 +5,3 @@ For each entity:
 1. Extract the requested traits.
 2. For each trait, provide the value (concise description) and evidence (direct quote or reference).
 3. If a trait is not found, return 'Not Found' for value and empty string for evidence.
-
-Return a list of analysis results, one for each requested entity.

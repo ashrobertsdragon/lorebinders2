@@ -14,18 +14,18 @@ from lorebinders.models import (
 
 def test_narrator_config_validation() -> None:
     """Verify NarratorConfig defaults and optional fields."""
-    config = NarratorConfig(is_3rd_person=True)
-    assert config.is_3rd_person is True
+    config = NarratorConfig(is_1st_person=False)
+    assert config.is_1st_person is False
     assert config.name is None
 
-    config = NarratorConfig(is_3rd_person=False, name="Watson")
-    assert config.is_3rd_person is False
+    config = NarratorConfig(is_1st_person=True, name="Watson")
+    assert config.is_1st_person is True
     assert config.name == "Watson"
 
 
 def test_run_configuration_validation() -> None:
     """Verify RunConfiguration requires specific fields and handles defaults."""
-    narrator = NarratorConfig(is_3rd_person=True)
+    narrator = NarratorConfig(is_1st_person=False)
 
     config = RunConfiguration(
         book_path=Path("./book.epub"),

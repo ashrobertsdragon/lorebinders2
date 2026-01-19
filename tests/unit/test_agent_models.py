@@ -4,20 +4,20 @@ from lorebinders.models import AnalysisConfig, ExtractionConfig, NarratorConfig
 def test_extraction_config_valid() -> None:
     """Test valid ExtractionConfig creation."""
     config = ExtractionConfig(
-        target_category="Characters",
+        target_categories=["Characters"],
         description="People in the story",
-        narrator=NarratorConfig(is_3rd_person=True),
+        narrator=NarratorConfig(is_1st_person=False),
     )
-    assert config.target_category == "Characters"
+    assert config.target_categories == ["Characters"]
     assert config.description == "People in the story"
     assert config.narrator is not None
-    assert config.narrator.is_3rd_person is True
+    assert config.narrator.is_1st_person is False
 
 
 def test_extraction_config_defaults() -> None:
     """Test ExtractionConfig defaults."""
-    config = ExtractionConfig(target_category="Locations")
-    assert config.target_category == "Locations"
+    config = ExtractionConfig(target_categories=["Locations"])
+    assert config.target_categories == ["Locations"]
     assert config.narrator is None
     assert config.description is None
 

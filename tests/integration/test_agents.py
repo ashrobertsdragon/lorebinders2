@@ -28,9 +28,15 @@ def test_agents_flow() -> None:
                 TextPart(
                     content=json.dumps(
                         {
-                            "response": {
-                                "Characters": ["Sherlock Holmes", "Dr. Watson"]
-                            }
+                            "results": [
+                                {
+                                    "category": "Characters",
+                                    "entities": [
+                                        "Sherlock Holmes",
+                                        "Dr. Watson",
+                                    ],
+                                }
+                            ]
                         }
                     )
                 )
@@ -75,10 +81,11 @@ def test_agents_flow() -> None:
         extraction_prompt = build_extraction_user_prompt(
             text_chunk,
             categories=["Characters"],
-            narrator=NarratorConfig(is_3rd_person=True),
+            narrator=NarratorConfig(is_1st_person=False),
         )
 
-        entities = run_agent(extraction_agent, extraction_prompt, deps)
+        result = run_agent(extraction_agent, extraction_prompt, deps)
+        entities = result.to_dict()
 
         assert "Characters" in entities
         assert "Sherlock Holmes" in entities["Characters"]
