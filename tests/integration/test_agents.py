@@ -1,18 +1,18 @@
 import json
 
-import pytest
 from pydantic_ai.messages import ModelMessage, ModelResponse, TextPart
 from pydantic_ai.models.function import FunctionModel
 
 from lorebinders.agent import (
     AgentDeps,
+    build_analysis_user_prompt,
+    build_extraction_user_prompt,
     create_analysis_agent,
     create_extraction_agent,
     run_agent,
 )
-from lorebinders.models import AnalysisConfig, ExtractionConfig, NarratorConfig
+from lorebinders.models import NarratorConfig
 from lorebinders.settings import Settings
-
 
 
 def mock_prompt_loader(filename: str) -> str:
@@ -20,32 +20,42 @@ def mock_prompt_loader(filename: str) -> str:
 
 
 def test_agents_flow() -> None:
-    async def mock_extract_call(
+    def mock_extract_call(
         messages: list[ModelMessage], info: object
     ) -> ModelResponse:
-
-
         return ModelResponse(
-            parts=[TextPart(content=json.dumps({"response": ["Sherlock Holmes", "Dr. Watson"]}))]
+            parts=[
+                TextPart(
+                    content=json.dumps(
+                        {
+                            "response": {
+                                "Characters": ["Sherlock Holmes", "Dr. Watson"]
+                            }
+                        }
+                    )
+                )
+            ]
         )
 
-    async def mock_analyze_call(
+    def mock_analyze_call(
         messages: list[ModelMessage], info: object
     ) -> ModelResponse:
-        result = {
-            "entity_name": "Sherlock Holmes",
-            "category": "Character",
-            "traits": [
-                {
-                    "trait": "Role",
-                    "value": "Detective",
-                    "evidence": "The world's only consulting detective",
-                }
-            ],
-            "confidence_score": 0.95,
-        }
-        return ModelResponse(parts=[TextPart(content=json.dumps(result))])
-
+        result = [
+            {
+                "entity_name": "Sherlock Holmes",
+                "category": "Character",
+                "traits": [
+                    {
+                        "trait": "Role",
+                        "value": "Detective",
+                        "evidence": "The world's only consulting detective",
+                    }
+                ],
+            }
+        ]
+        return ModelResponse(
+            parts=[TextPart(content=json.dumps({"response": result}))]
+        )
 
     settings = Settings()
     deps = AgentDeps(settings=settings, prompt_loader=mock_prompt_loader)
@@ -62,53 +72,31 @@ def test_agents_flow() -> None:
             "The world's only consulting detective was thinking."
         )
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-        from lorebinders.agent import build_extraction_user_prompt, build_analysis_user_prompt
-
-        ext_config = ExtractionConfig(
-            target_category="Character",
-            narrator=NarratorConfig(is_3rd_person=True),
-        )
-
         extraction_prompt = build_extraction_user_prompt(
             text_chunk,
-            ext_config.target_category,
-            narrator=ext_config.narrator
+            categories=["Characters"],
+            narrator=NarratorConfig(is_3rd_person=True),
         )
 
         entities = run_agent(extraction_agent, extraction_prompt, deps)
 
-        assert "Sherlock Holmes" in entities
-        assert "Dr. Watson" in entities
-
-        analysis_config = AnalysisConfig(
-            target_entity="Sherlock Holmes",
-            category="Character",
-            traits=["Role"],
-        )
+        assert "Characters" in entities
+        assert "Sherlock Holmes" in entities["Characters"]
+        assert "Dr. Watson" in entities["Characters"]
 
         analysis_prompt = build_analysis_user_prompt(
             text_chunk,
-            analysis_config.target_entity,
-            analysis_config.category,
-            analysis_config.traits
+            entities=[
+                {
+                    "name": "Sherlock Holmes",
+                    "category": "Character",
+                    "traits": ["Role"],
+                }
+            ],
         )
 
-        result = run_agent(analysis_agent, analysis_prompt, deps)
+        results = run_agent(analysis_agent, analysis_prompt, deps)
 
-        assert result.entity_name == "Sherlock Holmes"
-        assert result.traits[0].value == "Detective"
+        assert len(results) == 1
+        assert results[0].entity_name == "Sherlock Holmes"
+        assert results[0].traits[0].value == "Detective"

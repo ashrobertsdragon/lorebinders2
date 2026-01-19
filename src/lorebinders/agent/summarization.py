@@ -3,12 +3,16 @@
 import json
 from typing import Any
 
-from lorebinders.agent.core import (
+from pydantic_ai import Agent
+
+from lorebinders.agent.factory import (
     build_summarization_user_prompt,
     create_summarization_agent,
+    load_prompt_from_assets,
     run_agent,
 )
-from lorebinders.models import SummarizerConfig, SummarizerResult
+from lorebinders.models import AgentDeps, SummarizerResult
+from lorebinders.settings import get_settings
 
 
 def _format_context(data: Any) -> str:
@@ -25,7 +29,10 @@ def _format_context(data: Any) -> str:
     return str(data)
 
 
-def summarize_binder(binder: dict[str, Any]) -> dict[str, Any]:
+def summarize_binder(
+    binder: dict[str, Any],
+    agent: Agent[AgentDeps, SummarizerResult] | None = None,
+) -> dict[str, Any]:
     """Summarize entities in the binder.
 
     Iterates through categories and entities, generating a summary for each
@@ -33,12 +40,14 @@ def summarize_binder(binder: dict[str, Any]) -> dict[str, Any]:
 
     Args:
         binder: The refined binder dictionary.
+        agent: Optional agent instance for testing.
 
     Returns:
         The binder with added summaries.
     """
     summarized_binder = binder.copy()
-    agent = create_summarization_agent()
+    if agent is None:
+        agent = create_summarization_agent()
 
     for category, entities in binder.items():
         if not isinstance(entities, dict):
@@ -54,12 +63,11 @@ def summarize_binder(binder: dict[str, Any]) -> dict[str, Any]:
             )
 
             try:
-                dummy_config = SummarizerConfig(
-                    entity_name="", category="", context_data=""
+                deps = AgentDeps(
+                    settings=get_settings(),
+                    prompt_loader=load_prompt_from_assets,
                 )
-                result: SummarizerResult = run_agent(
-                    agent, prompt, dummy_config
-                )
+                result: SummarizerResult = run_agent(agent, prompt, deps)
 
                 if isinstance(summarized_binder[category][name], dict):
                     summarized_binder[category][name]["Summary"] = (

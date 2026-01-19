@@ -1,5 +1,7 @@
 import pytest
+
 from lorebinders.refinement.deduplication import _is_similar_key, resolve_binder
+
 
 @pytest.mark.parametrize(
     "key1, key2, expected",
@@ -12,11 +14,12 @@ from lorebinders.refinement.deduplication import _is_similar_key, resolve_binder
 def test_is_similar_key(key1: str, key2: str, expected: bool) -> None:
     assert _is_similar_key(key1, key2) == expected
 
-def test_resolve_merging():
+
+def test_resolve_merging() -> None:
     data = {
         "Characters": {
             "John Smith": {"Traits": ["Tall"], "Eyes": "Blue"},
-            "John": {"Traits": ["Brave"], "Hair": "Brown"}
+            "John": {"Traits": ["Brave"], "Hair": "Brown"},
         }
     }
 

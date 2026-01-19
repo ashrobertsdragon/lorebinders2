@@ -7,6 +7,7 @@ from pydantic_ai.tools import AgentDepsT
 from lorebinders.models import (
     AgentDeps,
     AnalysisResult,
+    EntityTarget,
     NarratorConfig,
     SummarizerResult,
 )
@@ -19,9 +20,9 @@ def load_prompt_from_assets(filename: str) -> str:
     Returns:
         The content of the prompt file.
     """
-    return (Path(__file__).parent / "assets" / "prompts" / filename).read_text(
-        encoding="utf-8"
-    )
+    return (
+        Path(__file__).parent.parent / "assets" / "prompts" / filename
+    ).read_text(encoding="utf-8")
 
 
 def create_agent(
@@ -67,7 +68,7 @@ def run_agent(
 
 def create_extraction_agent(
     settings: Settings | None = None,
-) -> Agent[AgentDeps, list[str]]:
+) -> Agent[AgentDeps, dict[str, list[str]]]:
     """Create a configured extraction agent.
 
     Args:
@@ -80,7 +81,7 @@ def create_extraction_agent(
     agent = create_agent(
         settings.extraction_model,
         deps_type=AgentDeps,
-        output_type=list[str],
+        output_type=dict[str, list[str]],
     )
 
     @agent.system_prompt
@@ -92,40 +93,39 @@ def create_extraction_agent(
 
 def build_extraction_user_prompt(
     text: str,
-    target_category: str,
+    categories: list[str],
     description: str | None = None,
     narrator: NarratorConfig | None = None,
 ) -> str:
-    """Build the user prompt with configuration constraints.
+    """Build the user prompt for batch extraction of all categories.
+
+    Args:
+        text: The text to extract from.
+        categories: The categories to extract.
+        description: A description of the categories.
+        narrator: The narrator configuration.
 
     Returns:
         The constructed user prompt string.
     """
-    prompt = f"## EXTRACT: {target_category}\n"
+    prompt = ["## CATEGORIES TO EXTRACT"]
+    prompt.extend([f"- {cat}\n" for cat in categories])
 
     if description:
-        prompt += f"Category Description: {description}\n"
+        prompt.append(f"Category Description: {description}")
 
     if narrator:
-        prompt += "Narrator Handling:"
-        if narrator.is_3rd_person:
-            prompt += (
-                "\n- The text is in 3rd person. Do not extract the narrator."
-            )
-        if narrator.name:
-            prompt += (
-                f"\n- The narrator is named '{narrator.name}'. "
-                "Do not extract them."
-            )
-        prompt += "\n"
+        prompt.append("Narrator Handling:\n")
+        if not narrator.is_3rd_person and narrator.name:
+            prompt.append(f"- The narrator is named '{narrator.name}'.\n")
 
-    prompt += f"\n## TEXT CHUNK\n{text}"
-    return prompt
+    prompt.append(f"## TEXT\n{text}")
+    return "\n".join(prompt)
 
 
 def create_analysis_agent(
     settings: Settings | None = None,
-) -> Agent[AgentDeps, AnalysisResult]:
+) -> Agent[AgentDeps, list[AnalysisResult]]:
     """Create a configured analysis agent.
 
     Args:
@@ -138,7 +138,7 @@ def create_analysis_agent(
     agent = create_agent(
         settings.analysis_model,
         deps_type=AgentDeps,
-        output_type=AnalysisResult,
+        output_type=list[AnalysisResult],
     )
 
     @agent.system_prompt
@@ -150,21 +150,27 @@ def create_analysis_agent(
 
 def build_analysis_user_prompt(
     context_text: str,
-    entity_name: str,
-    category: str,
-    traits: list[str],
+    entities: list[EntityTarget],
 ) -> str:
-    """Build user prompt with context FIRST for prefix caching.
+    """Build user prompt for batch analysis.
+
+    Args:
+        context_text: The chapter content.
+        entities: List of dicts with 'name', 'category', 'traits'.
 
     Returns:
         The constructed user prompt string.
     """
-    return (
-        f"## CONTEXT\n{context_text}\n\n"
-        f"## TASK\n"
-        f"Analyze the {category}: '{entity_name}'\n"
-        f"Focus on traits: {', '.join(traits)}"
-    )
+    prompt = [f"## CONTEXT\n{context_text}\n", "## TASKS"]
+
+    for entity in entities:
+        traits_str = ", ".join(entity["traits"])
+        prompt.append(
+            f"- Analyze {entity['category']} '{entity['name']}' "
+            f"for traits: {traits_str}"
+        )
+
+    return "\n".join(prompt)
 
 
 def create_summarization_agent(

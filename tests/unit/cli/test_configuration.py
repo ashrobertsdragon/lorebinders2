@@ -3,7 +3,7 @@ from pathlib import Path
 from lorebinders.cli.configuration import build_run_configuration
 
 
-def test_build_run_configuration_defaults():
+def test_build_run_configuration_defaults() -> None:
     config = build_run_configuration(
         book_path=Path("test.epub"),
         author_name="Author",
@@ -19,7 +19,7 @@ def test_build_run_configuration_defaults():
     assert config.custom_categories == []
 
 
-def test_build_run_configuration_flat_traits():
+def test_build_run_configuration_flat_traits() -> None:
     config = build_run_configuration(
         book_path=Path("test.epub"),
         author_name="Author",
@@ -33,7 +33,7 @@ def test_build_run_configuration_flat_traits():
     assert config.custom_traits == {"Characters": ["Trait1", "Trait2"]}
 
 
-def test_build_run_configuration_namespaced_traits():
+def test_build_run_configuration_namespaced_traits() -> None:
     config = build_run_configuration(
         book_path=Path("test.epub"),
         author_name="Author",

@@ -1,4 +1,5 @@
 import pytest
+
 from lorebinders.refinement.normalization import (
     merge_values,
     remove_titles,
