@@ -3,7 +3,7 @@ from unittest.mock import patch
 
 import pytest
 
-from lorebinders.ingestion.conversion import _split_chapters, ingest
+from lorebinders.conversion import _split_chapters, ingest
 from lorebinders.models import Book
 
 

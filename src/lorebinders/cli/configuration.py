@@ -8,7 +8,7 @@ def build_run_configuration(
     author_name: str,
     book_title: str,
     narrator_name: str | None,
-    is_3rd_person: bool,
+    is_1st_person: bool,
     traits: list[str] | None,
     categories: list[str] | None,
 ) -> RunConfiguration:
@@ -21,7 +21,7 @@ def build_run_configuration(
         author_name: Name of the author.
         book_title: Title of the book.
         narrator_name: Name of the narrator (if any).
-        is_3rd_person: Whether the book is 3rd person.
+        is_1st_person: Whether the book is 3rd person.
         traits: List of trait strings (e.g. ["Appearance",
                 "Location:Atmosphere"]).
         categories: List of custom category names.
@@ -30,7 +30,7 @@ def build_run_configuration(
         Structured RunConfiguration.
     """
     narrator_config = NarratorConfig(
-        is_3rd_person=is_3rd_person,
+        is_1st_person=is_1st_person,
         name=narrator_name,
     )
 

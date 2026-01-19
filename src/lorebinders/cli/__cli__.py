@@ -29,9 +29,9 @@ def main(
         str | None,
         typer.Option(help="Name of the narrator (if using 1st person)"),
     ] = None,
-    is_3rd_person: Annotated[
-        bool, typer.Option(help="Whether the book is written in 3rd person")
-    ] = True,
+    is_1st_person: Annotated[
+        bool, typer.Option(help="Whether the book is written in 1st person")
+    ] = False,
     traits: Annotated[
         list[str] | None, typer.Option("--trait", help="Custom trait to track")
     ] = None,
@@ -46,7 +46,7 @@ def main(
         author_name=author_name,
         book_title=book_title,
         narrator_name=narrator_name,
-        is_3rd_person=is_3rd_person,
+        is_1st_person=is_1st_person,
         traits=traits,
         categories=categories,
     )

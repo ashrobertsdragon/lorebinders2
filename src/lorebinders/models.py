@@ -34,7 +34,7 @@ class AgentDeps:
 class NarratorConfig(BaseModel):
     """Configuration for narrator detection and handling."""
 
-    is_3rd_person: bool = True
+    is_1st_person: bool = False
     name: str | None = None
 
 

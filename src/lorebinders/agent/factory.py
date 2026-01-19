@@ -116,7 +116,7 @@ def build_extraction_user_prompt(
 
     if narrator:
         prompt.append("Narrator Handling:\n")
-        if not narrator.is_3rd_person and narrator.name:
+        if narrator.is_1st_person and narrator.name:
             prompt.append(f"- The narrator is named '{narrator.name}'.\n")
 
     prompt.append(f"## TEXT\n{text}")
