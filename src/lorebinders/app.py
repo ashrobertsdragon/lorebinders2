@@ -11,7 +11,7 @@ from lorebinders.agent import (
     load_prompt_from_assets,
     run_agent,
 )
-from lorebinders.ingestion.conversion import ingest
+from lorebinders.conversion import ingest
 from lorebinders.models import (
     AgentDeps,
     AnalysisResult,

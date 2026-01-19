@@ -9,7 +9,7 @@ def test_build_run_configuration_defaults() -> None:
         author_name="Author",
         book_title="Title",
         narrator_name=None,
-        is_3rd_person=True,
+        is_1st_person=False,
         traits=None,
         categories=None,
     )
@@ -25,7 +25,7 @@ def test_build_run_configuration_flat_traits() -> None:
         author_name="Author",
         book_title="Title",
         narrator_name=None,
-        is_3rd_person=True,
+        is_1st_person=False,
         traits=["Trait1", "Trait2"],
         categories=None,
     )
@@ -39,7 +39,7 @@ def test_build_run_configuration_namespaced_traits() -> None:
         author_name="Author",
         book_title="Title",
         narrator_name=None,
-        is_3rd_person=True,
+        is_1st_person=False,
         traits=["Trait1", "Locations:Atmosphere", "Beasts:Ferocity"],
         categories=["Beasts"],
     )
