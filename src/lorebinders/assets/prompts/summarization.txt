@@ -3,3 +3,4 @@ Your goal is to provide a concise, cohesive, and insightful summary of the entit
 
 The context data contains fragmented notes, traits, and descriptions collected from various chapters.
 Synthesize this information into a professional "Story Bible" style summary.
+Do not include any additional information or context not present in the context data.

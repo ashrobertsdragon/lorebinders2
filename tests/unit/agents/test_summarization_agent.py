@@ -11,13 +11,12 @@ from pydantic_ai.messages import (
 from pydantic_ai.models.function import FunctionModel
 
 from lorebinders.agent import (
-    AgentDeps,
     build_summarization_user_prompt,
     create_summarization_agent,
     run_agent,
 )
 from lorebinders.agent.summarization import summarize_binder
-from lorebinders.models import SummarizerResult
+from lorebinders.models import AgentDeps, SummarizerResult
 from lorebinders.settings import Settings
 
 
@@ -72,7 +71,8 @@ def test_summarization_agent_run_sync_and_prompt() -> None:
         if isinstance(msg, ModelRequest):
             for part in msg.parts:
                 if isinstance(part, UserPromptPart):
-                    user_prompt_content += part.content
+                    if isinstance(part.content, str):
+                        user_prompt_content += part.content
 
     assert system_prompt_content == "Mock content for summarization.txt"
     assert "Gandalf" in user_prompt_content

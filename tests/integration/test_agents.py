@@ -4,14 +4,13 @@ from pydantic_ai.messages import ModelMessage, ModelResponse, TextPart
 from pydantic_ai.models.function import FunctionModel
 
 from lorebinders.agent import (
-    AgentDeps,
     build_analysis_user_prompt,
     build_extraction_user_prompt,
     create_analysis_agent,
     create_extraction_agent,
     run_agent,
 )
-from lorebinders.models import NarratorConfig
+from lorebinders.models import AgentDeps, NarratorConfig
 from lorebinders.settings import Settings
 
 

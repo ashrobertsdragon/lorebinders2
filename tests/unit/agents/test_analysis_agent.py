@@ -1,10 +1,14 @@
 from lorebinders.agent import (
-    AgentDeps,
     build_analysis_user_prompt,
     create_analysis_agent,
     run_agent,
 )
-from lorebinders.models import AnalysisResult, EntityTarget, TraitValue
+from lorebinders.models import (
+    AgentDeps,
+    AnalysisResult,
+    EntityTarget,
+    TraitValue,
+)
 from lorebinders.settings import Settings
 from tests.conftest import create_mock_model, get_system_prompt
 

@@ -5,7 +5,13 @@ from pydantic_ai import Agent
 
 from lorebinders import models
 from lorebinders.agent.summarization import summarize_binder
-from lorebinders.models import AgentDeps, Binder, EntityTarget, SummarizerResult
+from lorebinders.models import (
+    AgentDeps,
+    Binder,
+    EntityTarget,
+    ProgressUpdate,
+    SummarizerResult,
+)
 from lorebinders.refinement import refine_binder
 from lorebinders.refinement.deduplication import (
     _is_similar_key,
@@ -22,19 +28,35 @@ from lorebinders.storage.workspace import ensure_workspace, sanitize_filename
 def _extract_all_chapters(
     book: models.Book,
     extraction_fn: Callable[[models.Chapter], dict[str, list[str]]],
+    progress: Callable[[ProgressUpdate], None] | None = None,
 ) -> dict[int, dict[str, list[str]]]:
     """Extract entities from all chapters.
 
     Args:
         book: The book containing chapters.
         extraction_fn: Function to extract entities from a chapter.
+        progress: Optional callback for progress updates.
 
     Returns:
         Map of chapter number to category to list of entity names.
     """
     raw_extractions: dict[int, dict[str, list[str]]] = {}
-    for chapter in book.chapters:
+    total_chapters = len(book.chapters)
+
+    for idx, chapter in enumerate(book.chapters, 1):
+        if progress:
+            progress(
+                ProgressUpdate(
+                    stage="extraction",
+                    current=idx,
+                    total=total_chapters,
+                    message=(
+                        f"Extracting chapter {chapter.number}: {chapter.title}"
+                    ),
+                )
+            )
         raw_extractions[chapter.number] = extraction_fn(chapter)
+
     return raw_extractions
 
 
@@ -150,6 +172,7 @@ def _analyze_all_entities(
         [list[EntityTarget], models.Chapter], list[models.EntityProfile]
     ],
     batch_size: int = 5,
+    progress: Callable[[ProgressUpdate], None] | None = None,
 ) -> list[models.EntityProfile]:
     """Analyze all entities across all their chapter appearances.
 
@@ -179,17 +202,35 @@ def _analyze_all_entities(
 
     profiles: list[models.EntityProfile] = []
 
+    total_batches = 0
+    batch_tasks = []
+
     for chapter_num, targets in chapter_entities.items():
         chapter = chapter_map.get(chapter_num)
         if not chapter:
             continue
-
         for i in range(0, len(targets), batch_size):
-            batch = targets[i : i + batch_size]
-            batch_profiles = _analyze_batch(
-                batch, chapter, profiles_dir, analysis_fn
+            batch_tasks.append((targets[i : i + batch_size], chapter))
+
+    total_batches = len(batch_tasks)
+
+    for idx, (batch, chapter) in enumerate(batch_tasks, 1):
+        if progress:
+            progress(
+                ProgressUpdate(
+                    stage="analysis",
+                    current=idx,
+                    total=total_batches,
+                    message=(
+                        f"Analyzing batch {idx}/{total_batches} "
+                        f"(Chapter {chapter.number})"
+                    ),
+                )
             )
-            profiles.extend(batch_profiles)
+        batch_profiles = _analyze_batch(
+            batch, chapter, profiles_dir, analysis_fn
+        )
+        profiles.extend(batch_profiles)
 
     return profiles
 
@@ -256,6 +297,7 @@ def build_binder(
     ],
     reporting: Callable[[list[models.EntityProfile], Path], None],
     summarization_agent: Agent[AgentDeps, SummarizerResult] | None = None,
+    progress: Callable[[ProgressUpdate], None] | None = None,
 ) -> None:
     """Execute the LoreBinders build pipeline.
 
@@ -267,11 +309,17 @@ def build_binder(
 
     book = ingestion(config.book_path, output_dir)
 
-    raw_extractions = _extract_all_chapters(book, extraction)
+    raw_extractions = _extract_all_chapters(book, extraction, progress)
 
     entities = _aggregate_extractions(raw_extractions)
 
-    profiles = _analyze_all_entities(entities, book, profiles_dir, analysis)
+    profiles = _analyze_all_entities(
+        entities,
+        book,
+        profiles_dir,
+        analysis,
+        progress=progress,
+    )
 
     raw_binder = _aggregate_profiles_to_binder(profiles)
 

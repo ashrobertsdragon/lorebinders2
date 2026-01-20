@@ -3,9 +3,17 @@ from typing import Annotated
 
 import typer
 from rich.console import Console
+from rich.progress import (
+    BarColumn,
+    Progress,
+    SpinnerColumn,
+    TextColumn,
+    TimeRemainingColumn,
+)
 
 from lorebinders import app
 from lorebinders.cli.configuration import build_run_configuration
+from lorebinders.models import ProgressUpdate
 
 cli = typer.Typer(no_args_is_help=True)
 console = Console()
@@ -54,7 +62,40 @@ def main(
     console.print("[bold blue]Starting LoreBinders...[/bold blue]")
 
     try:
-        output_path = app.run(config)
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            BarColumn(),
+            TextColumn("[progress.percentage]{task.percentage:>3.0f}%"),
+            TimeRemainingColumn(),
+            console=console,
+        ) as progress:
+            extraction_task = progress.add_task(
+                "Extracting...", total=None, visible=True
+            )
+            analysis_task = progress.add_task(
+                "Analyzing...", total=None, visible=False
+            )
+
+            def handle_progress(update: ProgressUpdate) -> None:
+                if update.stage == "extraction":
+                    progress.update(
+                        extraction_task,
+                        completed=update.current,
+                        total=update.total,
+                        description=update.message,
+                    )
+                elif update.stage == "analysis":
+                    progress.update(
+                        analysis_task,
+                        visible=True,
+                        completed=update.current,
+                        total=update.total,
+                        description=update.message,
+                    )
+
+            output_path = app.run(config, progress=handle_progress)
+
         console.print(
             f"[bold green]Complete![/bold green] Report saved to: {output_path}"
         )

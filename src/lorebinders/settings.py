@@ -2,7 +2,10 @@
 
 from pathlib import Path
 
+from pydantic_ai.settings import ModelSettings
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+from lorebinders.agent.settings import settings_config
 
 
 class Settings(BaseSettings):
@@ -33,6 +36,12 @@ class Settings(BaseSettings):
         "Relative Location",
         "Character Familiarity",
     ]
+
+    @property
+    def extractor_model_settings(self) -> ModelSettings:
+        """Set reasoning level for the extraction agent."""
+        model_provider = self.extraction_model.split(":")[0]
+        return settings_config(model_provider)
 
 
 def get_settings() -> Settings:
