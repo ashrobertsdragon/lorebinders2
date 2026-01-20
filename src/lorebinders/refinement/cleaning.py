@@ -106,7 +106,10 @@ def replace_narrator(data: Any, narrator_name: str | None) -> Any:
     elif isinstance(data, dict):
         new_dict: dict[str, Any] = {}
         for key, value in data.items():
-            new_key = NARRATOR_PATTERN.sub(narrator_name, key)
+            if isinstance(key, str):
+                new_key = NARRATOR_PATTERN.sub(narrator_name, key)
+            else:
+                new_key = key
             new_val = replace_narrator(value, narrator_name)
             if new_key in new_dict:
                 new_dict[new_key] = merge_values(new_dict[new_key], new_val)
