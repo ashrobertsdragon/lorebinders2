@@ -2,6 +2,7 @@ from pathlib import Path
 
 from pydantic_ai import Agent, RunContext
 from pydantic_ai.agent import RunOutputDataT
+from pydantic_ai.settings import ModelSettings
 from pydantic_ai.tools import AgentDepsT
 
 from lorebinders.models import (
@@ -30,6 +31,7 @@ def create_agent(
     model_name: str,
     deps_type: type[AgentDepsT],
     output_type: type[RunOutputDataT],
+    model_settings: ModelSettings | None = None,
 ) -> Agent[AgentDepsT, RunOutputDataT]:
     """Create a PydanticAI Agent with the given model.
 
@@ -45,6 +47,7 @@ def create_agent(
         model_name,
         deps_type=deps_type,
         output_type=output_type,
+        model_settings=model_settings,
     )
 
 
@@ -52,6 +55,7 @@ def run_agent(
     agent: Agent[AgentDepsT, RunOutputDataT],
     user_prompt: str,
     deps: AgentDepsT,
+    model_settings: ModelSettings | None = None,
 ) -> RunOutputDataT:
     """Run an agent synchronously and return the output.
 
@@ -59,11 +63,14 @@ def run_agent(
         agent: The agent instance to run.
         user_prompt: The prompt text to send to the agent.
         deps: The dependencies (configuration) for this run.
+        model_settings: Optional provider-specific model settings.
 
     Returns:
         The structured output from the agent.
     """
-    result = agent.run_sync(user_prompt, deps=deps)
+    result = agent.run_sync(
+        user_prompt, deps=deps, model_settings=model_settings
+    )
     return result.output
 
 
@@ -79,10 +86,12 @@ def create_extraction_agent(
         A configured Agent instance.
     """
     settings = settings or get_settings()
+
     agent = create_agent(
         settings.extraction_model,
         deps_type=AgentDeps,
         output_type=ExtractionResult,
+        model_settings=settings.extractor_model_settings,
     )
 
     @agent.system_prompt
@@ -110,15 +119,16 @@ def build_extraction_user_prompt(
         The constructed user prompt string.
     """
     prompt = ["## CATEGORIES TO EXTRACT"]
-    prompt.extend([f"- {cat}\n" for cat in categories])
+    prompt.extend([f"- {cat}" for cat in categories])
 
     if description:
         prompt.append(f"Category Description: {description}")
 
-    if narrator:
-        prompt.append("Narrator Handling:\n")
-        if narrator.is_1st_person and narrator.name:
-            prompt.append(f"- The narrator is named '{narrator.name}'.\n")
+    if narrator and narrator.is_1st_person and narrator.name:
+        prompt.append(
+            "## NARRATOR HANDLING\n"
+            f"This text is in first person. The narrator is '{narrator.name}'."
+        )
 
     prompt.append(f"## TEXT\n{text}")
     return "\n".join(prompt)

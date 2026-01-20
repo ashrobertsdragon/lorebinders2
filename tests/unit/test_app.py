@@ -1,12 +1,16 @@
 import json
 
 import pytest
-from pydantic_ai.messages import ModelMessage, ModelResponse, TextPart
+from pydantic_ai.messages import (
+    ModelMessage,
+    ModelResponse,
+    TextPart,
+    UserPromptPart,
+)
 from pydantic_ai.models.function import FunctionModel
 
 from lorebinders import models
 from lorebinders.agent import (
-    AgentDeps,
     create_analysis_agent,
     create_extraction_agent,
 )
@@ -20,7 +24,9 @@ def mock_prompt_loader(filename: str) -> str:
 
 @pytest.fixture
 def test_deps():
-    return AgentDeps(settings=Settings(), prompt_loader=mock_prompt_loader)
+    return models.AgentDeps(
+        settings=Settings(), prompt_loader=mock_prompt_loader
+    )
 
 
 @pytest.fixture
@@ -40,7 +46,9 @@ def test_create_extractor(test_config, test_deps) -> None:
         found = False
         for msg in messages:
             for part in msg.parts:
-                if "Some chapter content" in str(part.content):
+                if isinstance(
+                    part, UserPromptPart
+                ) and "Some chapter content" in str(part.content):
                     found = True
                     break
         assert found, f"User prompt not found in messages: {messages}"
@@ -49,7 +57,14 @@ def test_create_extractor(test_config, test_deps) -> None:
             parts=[
                 TextPart(
                     content=json.dumps(
-                        {"response": {"Characters": ["Alice", "Bob"]}}
+                        {
+                            "results": [
+                                {
+                                    "category": "Characters",
+                                    "entities": ["Alice", "Bob"],
+                                }
+                            ]
+                        }
                     )
                 )
             ]
@@ -70,7 +85,7 @@ def test_create_extractor(test_config, test_deps) -> None:
         assert results == {"Characters": ["Alice", "Bob"]}
 
 
-def test_create_analyzer(test_config, test_deps) -> None:
+def test_create_analyzer(test_deps) -> None:
     """Test create_analyzer logic with FunctionModel."""
 
     def test_analyze(
@@ -79,9 +94,12 @@ def test_create_analyzer(test_config, test_deps) -> None:
         found = False
         for msg in messages:
             for part in msg.parts:
-                if "Role" in str(part.content) and "Alice" in str(part.content):
-                    found = True
-                    break
+                if isinstance(part, UserPromptPart):
+                    if "Role" in str(part.content) and "Alice" in str(
+                        part.content
+                    ):
+                        found = True
+                        break
         assert found, f"User prompt content not found in messages: {messages}"
 
         result = {
@@ -100,7 +118,7 @@ def test_create_analyzer(test_config, test_deps) -> None:
     with agent.override(model=FunctionModel(test_analyze)):
         traits_map = {"Characters": ["Role"]}
         analyzer = create_analyzer(
-            test_config, agent, test_deps, effective_traits=traits_map
+            agent, test_deps, effective_traits=traits_map
         )
 
         chapter = models.Chapter(number=1, title="Ch1", content="Context")

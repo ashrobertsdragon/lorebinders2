@@ -1,10 +1,9 @@
 from lorebinders.agent import (
-    AgentDeps,
     build_extraction_user_prompt,
     create_extraction_agent,
     run_agent,
 )
-from lorebinders.models import NarratorConfig
+from lorebinders.models import AgentDeps, NarratorConfig
 from lorebinders.settings import Settings
 from tests.conftest import create_mock_model, get_system_prompt
 

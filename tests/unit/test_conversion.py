@@ -9,7 +9,7 @@ from lorebinders.models import Book
 
 @pytest.fixture
 def mock_ebook2text():
-    with patch("lorebinders.ingestion.conversion.ebook2text") as mock:
+    with patch("lorebinders.conversion.ebook2text") as mock:
         yield mock
 
 

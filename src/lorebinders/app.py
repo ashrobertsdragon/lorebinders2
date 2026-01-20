@@ -19,6 +19,7 @@ from lorebinders.models import (
     EntityProfile,
     EntityTarget,
     ExtractionResult,
+    ProgressUpdate,
     RunConfiguration,
 )
 from lorebinders.reporting.pdf import generate_pdf_report
@@ -92,7 +93,6 @@ def create_extractor(
 
 
 def create_analyzer(
-    config: RunConfiguration,
     agent: Agent[AgentDeps, list[AnalysisResult]],
     deps: AgentDeps,
     effective_traits: dict[str, list[str]],
@@ -100,7 +100,6 @@ def create_analyzer(
     """Create an analysis function.
 
     Args:
-        config: The run configuration.
         agent: The analysis agent.
         deps: Dependencies to inject.
         effective_traits: Map of category -> traits.
@@ -136,7 +135,9 @@ def create_analyzer(
 
         profiles = []
         for r in results:
-            profile_traits = {t.trait: t.value for t in r.traits}
+            profile_traits: dict[str, str | list[str]] = {
+                t.trait: t.value for t in r.traits
+            }
             profiles.append(
                 EntityProfile(
                     name=r.entity_name,
@@ -151,11 +152,15 @@ def create_analyzer(
     return analyze
 
 
-def run(config: RunConfiguration) -> Path:
+def run(
+    config: RunConfiguration,
+    progress: Callable[[ProgressUpdate], None] | None = None,
+) -> Path:
     """Execute the LoreBinders build pipeline.
 
     Args:
         config: The run configuration containing book path, author, title, etc.
+        progress: Optional callback to report progress.
 
     Returns:
         The path to the generated PDF report.
@@ -171,7 +176,7 @@ def run(config: RunConfiguration) -> Path:
     analysis_agent = create_analysis_agent(settings)
 
     extractor = create_extractor(config, extraction_agent, deps, all_categories)
-    analyzer = create_analyzer(config, analysis_agent, deps, effective_traits)
+    analyzer = create_analyzer(analysis_agent, deps, effective_traits)
 
     build_binder(
         config=config,
@@ -179,6 +184,7 @@ def run(config: RunConfiguration) -> Path:
         extraction=extractor,
         analysis=analyzer,
         reporting=generate_pdf_report,
+        progress=progress,
     )
 
     safe_title = sanitize_filename(config.book_title)

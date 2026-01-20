@@ -5,3 +5,5 @@ For each entity:
 1. Extract the requested traits.
 2. For each trait, provide the value (concise description) and evidence (direct quote or reference).
 3. If a trait is not found, return 'Not Found' for value and empty string for evidence.
+
+Be sure to only extract traits that are explicitly mentioned in the text chunk and not assumed. Name the entity as it is shown in the in the prompt request even if the text chunk uses a slightly different version of the name.

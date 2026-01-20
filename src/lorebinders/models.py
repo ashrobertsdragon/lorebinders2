@@ -105,7 +105,12 @@ class ExtractionResult(BaseModel):
     )
 
     def to_dict(self) -> dict[str, list[str]]:
-        """Convert results list to category→entities dictionary."""
+        """Convert results list to category ->entities dictionary.
+
+        Returns:
+            dict[str, list[str]]: Dictionary with category names as keys and
+                lists of entity names as values.
+        """
         return {item.category: item.entities for item in self.results}
 
 
@@ -146,3 +151,12 @@ class SummarizerResult(BaseModel):
 
     entity_name: str
     summary: str
+
+
+class ProgressUpdate(BaseModel):
+    """A progress update during pipeline execution."""
+
+    stage: str
+    current: int
+    total: int
+    message: str

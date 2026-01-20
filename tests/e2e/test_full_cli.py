@@ -9,6 +9,7 @@ from lorebinders.cli.__cli__ import cli
 from lorebinders.models import (
     AgentDeps,
     AnalysisResult,
+    ExtractionResult,
     SummarizerResult,
     TraitValue,
 )
@@ -49,13 +50,13 @@ def test_e2e_ingestion_flow(
     )
 
     extractor_model, _ = create_mock_model(
-        {"response": {"Locations": ["Night"]}},
+        {"results": [{"category": "Locations", "entities": ["Night"]}]},
         model_name="test:mock_extractor",
     )
-    mock_extractor_agent: Agent[AgentDeps, dict[str, list[str]]] = Agent(
+    mock_extractor_agent: Agent[AgentDeps, ExtractionResult] = Agent(
         extractor_model,
         deps_type=AgentDeps,
-        output_type=dict[str, list[str]],
+        output_type=ExtractionResult,
     )
 
     analysis_result = AnalysisResult(
