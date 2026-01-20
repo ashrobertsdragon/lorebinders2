@@ -9,12 +9,12 @@ from typing_extensions import NotRequired
 from lorebinders.settings import Settings
 
 
-class EntityTarget(TypedDict):
-    """Target entity for batch analysis."""
+class CategoryTarget(TypedDict):
+    """Target category for batch analysis."""
 
     name: str
-    category: str
     traits: NotRequired[list[str]]
+    entities: list[str]
 
 
 TraitDict = dict[str, str | list[str]]

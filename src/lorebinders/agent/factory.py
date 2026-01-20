@@ -8,7 +8,7 @@ from pydantic_ai.tools import AgentDepsT
 from lorebinders.models import (
     AgentDeps,
     AnalysisResult,
-    EntityTarget,
+    CategoryTarget,
     ExtractionResult,
     NarratorConfig,
     SummarizerResult,
@@ -22,9 +22,9 @@ def load_prompt_from_assets(filename: str) -> str:
     Returns:
         The content of the prompt file.
     """
-    return (
-        Path(__file__).parent.parent / "assets" / "prompts" / filename
-    ).read_text(encoding="utf-8")
+    return (Path(__file__).parent / "assets" / "prompts" / filename).read_text(
+        encoding="utf-8"
+    )
 
 
 def create_agent(
@@ -161,25 +161,25 @@ def create_analysis_agent(
 
 def build_analysis_user_prompt(
     context_text: str,
-    entities: list[EntityTarget],
+    categories: list[CategoryTarget],
 ) -> str:
     """Build user prompt for batch analysis.
 
     Args:
         context_text: The chapter content.
-        entities: List of dicts with 'name', 'category', 'traits'.
+        categories: List of dicts with 'name', 'entities', 'traits'.
 
     Returns:
         The constructed user prompt string.
     """
     prompt = [f"## CONTEXT\n{context_text}\n", "## TASKS"]
-
-    for entity in entities:
-        traits_str = ", ".join(entity["traits"])
+    for category in categories:
         prompt.append(
-            f"- Analyze {entity['category']} '{entity['name']}' "
-            f"for traits: {traits_str}"
+            f"### {category['name']}\nAnalyze the following traits:\n"
         )
+        prompt.append("\n- ".join(category["traits"]))
+        prompt.append("### Entities:\n")
+        prompt.extend([f"- {entity}" for entity in category["entities"]])
 
     return "\n".join(prompt)
 
