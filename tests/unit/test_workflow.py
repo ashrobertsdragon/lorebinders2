@@ -4,7 +4,7 @@ from pathlib import Path
 import pytest
 
 from lorebinders import models
-from lorebinders.models import Binder, EntityTarget
+from lorebinders.models import Binder, CategoryTarget
 from lorebinders.workflow import (
     _aggregate_extractions,
     _aggregate_profiles_to_binder,
@@ -58,7 +58,9 @@ def test_aggregate_extractions_deduplicates_similar_names() -> None:
     assert len(result["Characters"]) == 1
 
 
-def test_extract_all_chapters_calls_extraction_per_chapter() -> None:
+def test_extract_all_chapters_calls_extraction_per_chapter(
+    tmp_path: Path,
+) -> None:
     chapters = [
         models.Chapter(number=1, title="Ch1", content="Content 1"),
         models.Chapter(number=2, title="Ch2", content="Content 2"),
@@ -131,18 +133,19 @@ def test_analyze_all_entities_processes_each_chapter(
     entities = {"Characters": {"Alice": [1, 2]}}
 
     def fake_analyze_batch(
-        targets: list[EntityTarget], ctx: models.Chapter
+        targets: list[CategoryTarget], ctx: models.Chapter
     ) -> list[models.EntityProfile]:
         profiles = []
-        for e in targets:
-            profiles.append(
-                models.EntityProfile(
-                    name=e["name"],
-                    category=e["category"],
-                    chapter_number=ctx.number,
-                    traits={"Found": "Yes"},
+        for cat in targets:
+            for entity_name in cat["entities"]:
+                profiles.append(
+                    models.EntityProfile(
+                        name=entity_name,
+                        category=cat["name"],
+                        chapter_number=ctx.number,
+                        traits={"Found": "Yes"},
+                    )
                 )
-            )
         return profiles
 
     profiles = _analyze_all_entities(
@@ -186,18 +189,19 @@ def test_build_binder_orchestration(
         return {"Characters": ["Alice"]}
 
     def fake_analyze(
-        targets: list[EntityTarget], ctx: models.Chapter
+        targets: list[CategoryTarget], ctx: models.Chapter
     ) -> list[models.EntityProfile]:
         profiles = []
-        for e in targets:
-            profiles.append(
-                models.EntityProfile(
-                    name=e["name"],
-                    category=e["category"],
-                    chapter_number=ctx.number,
-                    traits={"Role": "Hero"},
+        for cat in targets:
+            for entity_name in cat["entities"]:
+                profiles.append(
+                    models.EntityProfile(
+                        name=entity_name,
+                        category=cat["name"],
+                        chapter_number=ctx.number,
+                        traits={"Role": "Hero"},
+                    )
                 )
-            )
         return profiles
 
     report_path = None

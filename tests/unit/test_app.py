@@ -123,10 +123,10 @@ def test_create_analyzer(test_deps) -> None:
 
         chapter = models.Chapter(number=1, title="Ch1", content="Context")
 
-        entities: list[models.EntityTarget] = [
-            models.EntityTarget(name="Alice", category="Characters")
+        categories: list[models.CategoryTarget] = [
+            models.CategoryTarget(name="Characters", entities=["Alice"])
         ]
-        profiles = analyzer(entities, chapter)
+        profiles = analyzer(categories, chapter)
 
         assert len(profiles) == 1
         profile = profiles[0]

@@ -6,7 +6,7 @@ from lorebinders.agent import (
 from lorebinders.models import (
     AgentDeps,
     AnalysisResult,
-    EntityTarget,
+    CategoryTarget,
     TraitValue,
 )
 from lorebinders.settings import Settings
@@ -50,17 +50,17 @@ def test_analysis_agent_run_sync_and_prompt() -> None:
     )
 
     with agent.override(model=mock_model):
-        entities: list[EntityTarget] = [
-            EntityTarget(
-                name="Gandalf",
-                category="Character",
+        categories: list[CategoryTarget] = [
+            CategoryTarget(
+                name="Character",
+                entities=["Gandalf"],
                 traits=["Role", "Origin"],
             )
         ]
 
         prompt = build_analysis_user_prompt(
             context_text="Gandalf the Wizard came from Valinor.",
-            entities=entities,
+            categories=categories,
         )
 
         result = run_agent(agent, prompt, deps)

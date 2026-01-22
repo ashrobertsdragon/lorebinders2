@@ -1,6 +1,7 @@
 """Entity summarization using AI agents."""
 
 import json
+import logging
 from typing import Any
 
 from pydantic_ai import Agent
@@ -13,6 +14,8 @@ from lorebinders.agent.factory import (
 )
 from lorebinders.models import AgentDeps, SummarizerResult
 from lorebinders.settings import get_settings
+
+logger = logging.getLogger(__name__)
 
 
 def _format_context(data: Any) -> str:
@@ -63,23 +66,23 @@ def summarize_binder(
             )
 
             try:
+                logger.info(f"Summarizing {category}: {name}")
                 deps = AgentDeps(
                     settings=get_settings(),
                     prompt_loader=load_prompt_from_assets,
                 )
                 result: SummarizerResult = run_agent(agent, prompt, deps)
+                summary_text = result.summary
 
                 if isinstance(summarized_binder[category][name], dict):
-                    summarized_binder[category][name]["Summary"] = (
-                        result.summary
-                    )
+                    summarized_binder[category][name]["Summary"] = summary_text
                 else:
                     summarized_binder[category][name] = {
                         "Original": summarized_binder[category][name],
-                        "Summary": result.summary,
+                        "Summary": summary_text,
                     }
             except Exception as e:
-                print(f"Failed to summarize {name}: {e}")
-                pass
+                logger.error(f"Failed to summarize {name}: {e}")
+                raise
 
     return summarized_binder

@@ -15,9 +15,9 @@ from lorebinders.conversion import ingest
 from lorebinders.models import (
     AgentDeps,
     AnalysisResult,
+    CategoryTarget,
     Chapter,
     EntityProfile,
-    EntityTarget,
     ExtractionResult,
     ProgressUpdate,
     RunConfiguration,
@@ -96,7 +96,7 @@ def create_analyzer(
     agent: Agent[AgentDeps, list[AnalysisResult]],
     deps: AgentDeps,
     effective_traits: dict[str, list[str]],
-) -> Callable[[list[EntityTarget], Chapter], list[EntityProfile]]:
+) -> Callable[[list[CategoryTarget], Chapter], list[EntityProfile]]:
     """Create an analysis function.
 
     Args:
@@ -109,26 +109,18 @@ def create_analyzer(
     """
 
     def analyze(
-        entities: list[EntityTarget], context: Chapter
+        categories: list[CategoryTarget], context: Chapter
     ) -> list[EntityProfile]:
-        enriched: list[EntityTarget] = []
-        for entity in entities:
-            cat = entity["category"]
+        for category in categories:
+            cat = category["name"]
             traits = effective_traits.get(cat, [])
             if not traits:
                 traits = ["Description", "Role"]
-
-            enriched.append(
-                {
-                    "name": entity["name"],
-                    "category": cat,
-                    "traits": traits,
-                }
-            )
+            category["traits"] = traits
 
         full_prompt = build_analysis_user_prompt(
             context_text=context.content,
-            entities=enriched,
+            categories=categories,
         )
 
         results = run_agent(agent, full_prompt, deps)
@@ -155,6 +147,7 @@ def create_analyzer(
 def run(
     config: RunConfiguration,
     progress: Callable[[ProgressUpdate], None] | None = None,
+    log_file: Path | None = None,
 ) -> Path:
     """Execute the LoreBinders build pipeline.
 

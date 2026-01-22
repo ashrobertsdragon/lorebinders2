@@ -1,3 +1,4 @@
+import logging
 from collections.abc import Callable
 from pathlib import Path
 
@@ -5,13 +6,6 @@ from pydantic_ai import Agent
 
 from lorebinders import models
 from lorebinders.agent.summarization import summarize_binder
-from lorebinders.models import (
-    AgentDeps,
-    Binder,
-    EntityTarget,
-    ProgressUpdate,
-    SummarizerResult,
-)
 from lorebinders.refinement import refine_binder
 from lorebinders.refinement.deduplication import (
     _is_similar_key,
@@ -24,11 +18,13 @@ from lorebinders.storage.profiles import (
 )
 from lorebinders.storage.workspace import ensure_workspace, sanitize_filename
 
+logger = logging.getLogger(__name__)
+
 
 def _extract_all_chapters(
     book: models.Book,
     extraction_fn: Callable[[models.Chapter], dict[str, list[str]]],
-    progress: Callable[[ProgressUpdate], None] | None = None,
+    progress: Callable[[models.ProgressUpdate], None] | None = None,
 ) -> dict[int, dict[str, list[str]]]:
     """Extract entities from all chapters.
 
@@ -43,10 +39,11 @@ def _extract_all_chapters(
     raw_extractions: dict[int, dict[str, list[str]]] = {}
     total_chapters = len(book.chapters)
 
+    logger.info(f"Extracting entities from {total_chapters} chapters")
     for idx, chapter in enumerate(book.chapters, 1):
         if progress:
             progress(
-                ProgressUpdate(
+                models.ProgressUpdate(
                     stage="extraction",
                     current=idx,
                     total=total_chapters,
@@ -128,11 +125,12 @@ def _aggregate_extractions(
 
 
 def _analyze_batch(
-    target_entities: list[EntityTarget],
+    target_categories: list[models.CategoryTarget],
     chapter: models.Chapter,
     profiles_dir: Path,
     analysis_fn: Callable[
-        [list[EntityTarget], models.Chapter], list[models.EntityProfile]
+        [list[models.CategoryTarget], models.Chapter],
+        list[models.EntityProfile],
     ],
 ) -> list[models.EntityProfile]:
     """Analyze a batch of entities, skipping already analyzed ones.
@@ -141,17 +139,23 @@ def _analyze_batch(
         List of EntityProfile objects (loaded or newly analyzed).
     """
     profiles: list[models.EntityProfile] = []
-    to_analyze: list[EntityTarget] = []
+    to_analyze: list[models.CategoryTarget] = []
 
-    for entity in target_entities:
-        name = entity["name"]
-        category = entity["category"]
-        if profile_exists(profiles_dir, chapter.number, category, name):
-            profiles.append(
-                load_profile(profiles_dir, chapter.number, category, name)
+    for cat_target in target_categories:
+        category = cat_target["name"]
+        entities_to_run = []
+        for name in cat_target["entities"]:
+            if profile_exists(profiles_dir, chapter.number, category, name):
+                profiles.append(
+                    load_profile(profiles_dir, chapter.number, category, name)
+                )
+            else:
+                entities_to_run.append(name)
+
+        if entities_to_run:
+            to_analyze.append(
+                models.CategoryTarget(name=category, entities=entities_to_run)
             )
-        else:
-            to_analyze.append(entity)
 
     if not to_analyze:
         return profiles
@@ -169,10 +173,11 @@ def _analyze_all_entities(
     book: models.Book,
     profiles_dir: Path,
     analysis_fn: Callable[
-        [list[EntityTarget], models.Chapter], list[models.EntityProfile]
+        [list[models.CategoryTarget], models.Chapter],
+        list[models.EntityProfile],
     ],
     batch_size: int = 5,
-    progress: Callable[[ProgressUpdate], None] | None = None,
+    progress: Callable[[models.ProgressUpdate], None] | None = None,
 ) -> list[models.EntityProfile]:
     """Analyze all entities across all their chapter appearances.
 
@@ -188,36 +193,44 @@ def _analyze_all_entities(
     """
     chapter_map = {ch.number: ch for ch in book.chapters}
 
-    chapter_entities: dict[int, list[EntityTarget]] = {}
+    chapter_entities: models.CategoryChapterData = {}
 
     for category, entity_chapters in entities.items():
         for entity_name, chapters in entity_chapters.items():
             for chapter_num in chapters:
                 if chapter_num not in chapter_entities:
-                    chapter_entities[chapter_num] = []
+                    chapter_entities[chapter_num] = {}
+                if category not in chapter_entities[chapter_num]:
+                    chapter_entities[chapter_num][category] = []
+                chapter_entities[chapter_num][category].append(entity_name)
 
-                chapter_entities[chapter_num].append(
-                    EntityTarget(name=entity_name, category=category)
-                )
-
-    profiles: list[models.EntityProfile] = []
-
-    total_batches = 0
+    profiles = []
     batch_tasks = []
 
-    for chapter_num, targets in chapter_entities.items():
+    for chapter_num, cat_map in chapter_entities.items():
         chapter = chapter_map.get(chapter_num)
         if not chapter:
             continue
-        for i in range(0, len(targets), batch_size):
-            batch_tasks.append((targets[i : i + batch_size], chapter))
+
+        for category, names in cat_map.items():
+            for i in range(0, len(names), batch_size):
+                batch_targets = [
+                    models.CategoryTarget(
+                        name=category, entities=names[i : i + batch_size]
+                    )
+                ]
+                batch_tasks.append((batch_targets, chapter))
 
     total_batches = len(batch_tasks)
+    logger.info(
+        f"Analyzing {total_batches} entity batches across "
+        f"{len(chapter_entities)} chapters"
+    )
 
     for idx, (batch, chapter) in enumerate(batch_tasks, 1):
         if progress:
             progress(
-                ProgressUpdate(
+                models.ProgressUpdate(
                     stage="analysis",
                     current=idx,
                     total=total_batches,
@@ -237,13 +250,13 @@ def _analyze_all_entities(
 
 def _aggregate_profiles_to_binder(
     profiles: list[models.EntityProfile],
-) -> Binder:
+) -> models.Binder:
     """Convert list of profiles to binder dict format.
 
     Returns:
         Binder dict: {Category: {Name: {ChapterNum: Traits}}}
     """
-    binder: Binder = {}
+    binder: models.Binder = {}
 
     for p in profiles:
         if p.category not in binder:
@@ -256,7 +269,7 @@ def _aggregate_profiles_to_binder(
 
 
 def _binder_to_profiles(
-    binder: Binder,
+    binder: models.Binder,
 ) -> list[models.EntityProfile]:
     """Convert binder dict format back to list of profiles.
 
@@ -293,16 +306,21 @@ def build_binder(
     ingestion: Callable[[Path, Path], models.Book],
     extraction: Callable[[models.Chapter], dict[str, list[str]]],
     analysis: Callable[
-        [list[EntityTarget], models.Chapter], list[models.EntityProfile]
+        [list[models.CategoryTarget], models.Chapter],
+        list[models.EntityProfile],
     ],
     reporting: Callable[[list[models.EntityProfile], Path], None],
-    summarization_agent: Agent[AgentDeps, SummarizerResult] | None = None,
-    progress: Callable[[ProgressUpdate], None] | None = None,
+    summarization_agent: Agent[models.AgentDeps, models.SummarizerResult]
+    | None = None,
+    progress: Callable[[models.ProgressUpdate], None] | None = None,
 ) -> None:
     """Execute the LoreBinders build pipeline.
 
     Pipeline: Ingest -> Extract -> Dedupe -> Analyze -> Refine -> Report
     """
+    logger.info(
+        f"Starting binder build for {config.book_title} by {config.author_name}"
+    )
     output_dir = ensure_workspace(config.author_name, config.book_title)
     profiles_dir = output_dir / "profiles"
     profiles_dir.mkdir(exist_ok=True)
