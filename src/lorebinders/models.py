@@ -1,12 +1,13 @@
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TypedDict
+from typing import TYPE_CHECKING, TypedDict
 
 from pydantic import BaseModel, Field
 from typing_extensions import NotRequired
 
-from lorebinders.settings import Settings
+if TYPE_CHECKING:
+    from lorebinders.settings import Settings
 
 
 class CategoryTarget(TypedDict):
@@ -31,7 +32,7 @@ Binder = dict[str, EntityData]
 class AgentDeps:
     """Dependencies injected into agents."""
 
-    settings: Settings
+    settings: "Settings"
     prompt_loader: Callable[[str], str]
 
 

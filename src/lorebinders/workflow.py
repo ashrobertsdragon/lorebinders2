@@ -315,6 +315,107 @@ def _binder_to_profiles(
     return profiles
 
 
+def _get_summarizable_binder(
+    binder: models.Binder, threshold: int = 3
+) -> models.Binder:
+    """Filter binder for entities meeting chapter threshold.
+
+    Args:
+        binder: The source binder to filter.
+        threshold: Minimum number of chapters required.
+
+    Returns:
+        A new binder containing only qualifying entities.
+    """
+    result: models.Binder = {}
+    for category, entities in binder.items():
+        if not isinstance(entities, dict):
+            continue
+
+        valid_entities = _filter_category_entities(entities, threshold)
+        if valid_entities:
+            result[category] = valid_entities
+    return result
+
+
+def _filter_category_entities(
+    entities: models.EntityData, threshold: int
+) -> models.EntityData:
+    """Filter entities within a category by chapter count.
+
+    Args:
+        entities: The entity dictionary for a category.
+        threshold: Minimum chapter count.
+
+    Returns:
+        Dictionary of qualifying entities.
+    """
+    filtered: models.EntityData = {}
+    for name, data in entities.items():
+        if not isinstance(data, dict):
+            continue
+        if len(data) >= threshold:
+            filtered[name] = data
+    return filtered
+
+
+def _merge_summary_results(
+    target: models.Binder, source: models.Binder
+) -> None:
+    """Merge summary fields from source binder into target binder.
+
+    Args:
+        target: The destination binder to update.
+        source: The binder containing generated summaries.
+    """
+    for category, entities in source.items():
+        if not isinstance(entities, dict):
+            continue
+        _merge_category_summaries(target, category, entities)
+
+
+def _merge_category_summaries(
+    target: models.Binder, category: str, source_entities: models.EntityData
+) -> None:
+    """Merge summaries for a specific category.
+
+    Args:
+        target: The destination binder.
+        category: The category key.
+        source_entities: The source entities with summaries.
+    """
+    if category not in target:
+        return
+
+    target_entities = target[category]
+    if not isinstance(target_entities, dict):
+        return
+
+    for name, data in source_entities.items():
+        if not isinstance(data, dict):
+            continue
+        if "Summary" in data:
+            _update_entity_summary(target_entities, name, data["Summary"])
+
+
+def _update_entity_summary(
+    entities: models.EntityData, name: str, summary: str | models.TraitDict
+) -> None:
+    """Update a single entity's summary if it exists in target.
+
+    Args:
+        entities: The target entity dictionary.
+        name: The entity name.
+        summary: The summary text to set.
+    """
+    if name not in entities:
+        return
+
+    entity_data = entities[name]
+    if isinstance(entity_data, dict):
+        entity_data["Summary"] = summary
+
+
 def build_binder(
     config: models.RunConfiguration,
     ingestion: Callable[[Path, Path], models.Book],
@@ -323,14 +424,21 @@ def build_binder(
         [list[models.CategoryTarget], models.Chapter],
         list[models.EntityProfile],
     ],
-    reporting: Callable[[list[models.EntityProfile], Path], None],
+    reporting: Callable[[models.Binder, Path], None],
     summarization_agent: Agent[models.AgentDeps, models.SummarizerResult]
     | None = None,
     progress: Callable[[models.ProgressUpdate], None] | None = None,
 ) -> None:
     """Execute the LoreBinders build pipeline.
 
-    Pipeline: Ingest -> Extract -> Dedupe -> Analyze -> Refine -> Report
+    Args:
+        config: Configuration for the run.
+        ingestion: Function to ingest the book.
+        extraction: Function to extract entities.
+        analysis: Function to analyze entities.
+        reporting: Function to generate reports.
+        summarization_agent: Agent for summarization.
+        progress: Progress callback.
     """
     logger.info(
         f"Starting binder build for {config.book_title} by {config.author_name}"
@@ -366,11 +474,13 @@ def build_binder(
     )
     refined_binder = refine_binder(raw_binder, narrator_name)
 
-    summarized_binder = summarize_binder(
-        refined_binder, summaries_dir, summarization_agent
+    summarizable_binder = _get_summarizable_binder(refined_binder, 3)
+
+    partial_summarized_binder = summarize_binder(
+        summarizable_binder, summaries_dir, summarization_agent
     )
 
-    final_profiles = _binder_to_profiles(summarized_binder)
+    _merge_summary_results(refined_binder, partial_summarized_binder)
 
     safe_title = sanitize_filename(config.book_title)
-    reporting(final_profiles, output_dir / f"{safe_title}_story_bible.pdf")
+    reporting(refined_binder, output_dir / f"{safe_title}_story_bible.pdf")
