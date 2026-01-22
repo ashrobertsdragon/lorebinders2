@@ -11,6 +11,11 @@ from lorebinders.refinement.deduplication import (
     _is_similar_key,
     _prioritize_keys,
 )
+from lorebinders.storage.extractions import (
+    extraction_exists,
+    load_extraction,
+    save_extraction,
+)
 from lorebinders.storage.profiles import (
     load_profile,
     profile_exists,
@@ -24,6 +29,7 @@ logger = logging.getLogger(__name__)
 def _extract_all_chapters(
     book: models.Book,
     extraction_fn: Callable[[models.Chapter], dict[str, list[str]]],
+    extractions_dir: Path,
     progress: Callable[[models.ProgressUpdate], None] | None = None,
 ) -> dict[int, dict[str, list[str]]]:
     """Extract entities from all chapters.
@@ -31,6 +37,7 @@ def _extract_all_chapters(
     Args:
         book: The book containing chapters.
         extraction_fn: Function to extract entities from a chapter.
+        extractions_dir: Directory for caching extraction results.
         progress: Optional callback for progress updates.
 
     Returns:
@@ -52,7 +59,18 @@ def _extract_all_chapters(
                     ),
                 )
             )
-        raw_extractions[chapter.number] = extraction_fn(chapter)
+
+        if extraction_exists(extractions_dir, chapter.number):
+            logger.info(
+                f"Loading cached extraction for chapter {chapter.number}"
+            )
+            raw_extractions[chapter.number] = load_extraction(
+                extractions_dir, chapter.number
+            )
+        else:
+            result = extraction_fn(chapter)
+            save_extraction(extractions_dir, chapter.number, result)
+            raw_extractions[chapter.number] = result
 
     return raw_extractions
 
@@ -320,10 +338,16 @@ def build_binder(
     output_dir = ensure_workspace(config.author_name, config.book_title)
     profiles_dir = output_dir / "profiles"
     profiles_dir.mkdir(exist_ok=True)
+    extractions_dir = output_dir / "extractions"
+    extractions_dir.mkdir(exist_ok=True)
+    summaries_dir = output_dir / "summaries"
+    summaries_dir.mkdir(exist_ok=True)
 
     book = ingestion(config.book_path, output_dir)
 
-    raw_extractions = _extract_all_chapters(book, extraction, progress)
+    raw_extractions = _extract_all_chapters(
+        book, extraction, extractions_dir, progress
+    )
 
     entities = _aggregate_extractions(raw_extractions)
 
@@ -342,7 +366,9 @@ def build_binder(
     )
     refined_binder = refine_binder(raw_binder, narrator_name)
 
-    summarized_binder = summarize_binder(refined_binder, summarization_agent)
+    summarized_binder = summarize_binder(
+        refined_binder, summaries_dir, summarization_agent
+    )
 
     final_profiles = _binder_to_profiles(summarized_binder)
 
