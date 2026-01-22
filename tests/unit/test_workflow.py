@@ -73,7 +73,7 @@ def test_extract_all_chapters_calls_extraction_per_chapter(
         extract_calls.append(ch.number)
         return {"Characters": [f"Char{ch.number}"]}
 
-    result = _extract_all_chapters(book, fake_extract)
+    result = _extract_all_chapters(book, fake_extract, tmp_path)
 
     assert extract_calls == [1, 2]
     assert 1 in result

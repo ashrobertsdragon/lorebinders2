@@ -22,7 +22,8 @@ CategoryChapterData = dict[int, CategoryTraits]
 CategoryData = dict[str, CategoryChapterData]
 TraitDict = dict[str, str | list[str]]
 EntityChapterData = dict[int, TraitDict]
-EntityData = dict[str, EntityChapterData]
+EntityEntry = dict[int | str, TraitDict | str]
+EntityData = dict[str, EntityEntry]
 Binder = dict[str, EntityData]
 
 

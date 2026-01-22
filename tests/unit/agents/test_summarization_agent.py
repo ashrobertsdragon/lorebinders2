@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 
 from pydantic_ai.messages import (
     ModelMessage,
@@ -16,7 +17,7 @@ from lorebinders.agent import (
     run_agent,
 )
 from lorebinders.agent.summarization import summarize_binder
-from lorebinders.models import AgentDeps, SummarizerResult
+from lorebinders.models import AgentDeps, Binder, SummarizerResult
 from lorebinders.settings import Settings
 
 
@@ -80,7 +81,7 @@ def test_summarization_agent_run_sync_and_prompt() -> None:
     assert "He is a wizard" in user_prompt_content
 
 
-def test_entity_summarizer_orchestration() -> None:
+def test_entity_summarizer_orchestration(tmp_path: Path) -> None:
     expected_result_dict = {
         "entity_name": "Frodo",
         "summary": "A brave hobbit.",
@@ -95,13 +96,13 @@ def test_entity_summarizer_orchestration() -> None:
 
     agent = create_summarization_agent()
     with agent.override(model=FunctionModel(mock_model_call)):
-        binder = {
+        binder: Binder = {
             "Characters": {
-                "Frodo": {"Traits": ["Brave", "Short"], "Item": "Ring"}
+                "Frodo": {1: {"Traits": ["Brave", "Short"], "Item": "Ring"}}
             }
         }
 
-        result_binder = summarize_binder(binder, agent=agent)
+        result_binder = summarize_binder(binder, tmp_path, agent=agent)
 
         assert "Characters" in result_binder
         assert "Frodo" in result_binder["Characters"]
@@ -109,4 +110,4 @@ def test_entity_summarizer_orchestration() -> None:
         assert (
             result_binder["Characters"]["Frodo"]["Summary"] == "A brave hobbit."
         )
-        assert "Traits" in result_binder["Characters"]["Frodo"]
+        assert "Traits" in result_binder["Characters"]["Frodo"][1]
