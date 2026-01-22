@@ -10,7 +10,7 @@ from lorebinders.agent import (
     create_extraction_agent,
     run_agent,
 )
-from lorebinders.models import AgentDeps, NarratorConfig
+from lorebinders.models import AgentDeps, CategoryTarget, NarratorConfig
 from lorebinders.settings import Settings
 
 
@@ -92,12 +92,12 @@ def test_agents_flow() -> None:
 
         analysis_prompt = build_analysis_user_prompt(
             text_chunk,
-            entities=[
-                {
-                    "name": "Sherlock Holmes",
-                    "category": "Character",
-                    "traits": ["Role"],
-                }
+            categories=[
+                CategoryTarget(
+                    name="Character",
+                    entities=["Sherlock Holmes"],
+                    traits=["Role"],
+                )
             ],
         )
 

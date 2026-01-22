@@ -101,7 +101,7 @@ def test_entity_summarizer_orchestration() -> None:
             }
         }
 
-        result_binder = summarize_binder(binder, agent)
+        result_binder = summarize_binder(binder, agent=agent)
 
         assert "Characters" in result_binder
         assert "Frodo" in result_binder["Characters"]

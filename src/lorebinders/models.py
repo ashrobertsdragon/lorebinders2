@@ -17,6 +17,9 @@ class CategoryTarget(TypedDict):
     entities: list[str]
 
 
+CategoryTraits = dict[str, list[str]]
+CategoryChapterData = dict[int, CategoryTraits]
+CategoryData = dict[str, CategoryChapterData]
 TraitDict = dict[str, str | list[str]]
 EntityChapterData = dict[int, TraitDict]
 EntityData = dict[str, EntityChapterData]

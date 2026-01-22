@@ -1,3 +1,4 @@
+import logging
 from pathlib import Path
 from typing import Annotated
 
@@ -13,6 +14,7 @@ from rich.progress import (
 
 from lorebinders import app
 from lorebinders.cli.configuration import build_run_configuration
+from lorebinders.logging import configure_logging
 from lorebinders.models import ProgressUpdate
 
 cli = typer.Typer(no_args_is_help=True)
@@ -47,6 +49,12 @@ def main(
         list[str] | None,
         typer.Option("--category", help="Custom category to track"),
     ] = None,
+    log_file: Annotated[
+        Path | None, typer.Option("--log-file", help="Path to save logs")
+    ] = None,
+    verbose: Annotated[
+        bool, typer.Option("--verbose", help="Enable verbose logging")
+    ] = False,
 ) -> None:
     """LoreBinders: Create a Story Bible from your book."""
     config = build_run_configuration(
@@ -58,6 +66,11 @@ def main(
         traits=traits,
         categories=categories,
     )
+
+    if log_file or verbose:
+        configure_logging(log_file)
+        if verbose:
+            logging.getLogger("lorebinders").setLevel(logging.DEBUG)
 
     console.print("[bold blue]Starting LoreBinders...[/bold blue]")
 
@@ -94,7 +107,9 @@ def main(
                         description=update.message,
                     )
 
-            output_path = app.run(config, progress=handle_progress)
+            output_path = app.run(
+                config, progress=handle_progress, log_file=log_file
+            )
 
         console.print(
             f"[bold green]Complete![/bold green] Report saved to: {output_path}"

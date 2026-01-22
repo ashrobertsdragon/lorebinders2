@@ -40,7 +40,7 @@ def test_e2e_ingestion_flow(
         entity_name="Night", summary="A dark and stormy night."
     )
     summarizer_model, _ = create_mock_model(
-        {"response": summarizer_result},
+        summarizer_result,
         model_name="test:mock_summarizer",
     )
     mock_summarizer_agent: Agent[AgentDeps, SummarizerResult] = Agent(
@@ -61,7 +61,7 @@ def test_e2e_ingestion_flow(
 
     analysis_result = AnalysisResult(
         entity_name="Night",
-        category="Location",
+        category="Locations",
         traits=[
             TraitValue(
                 trait="Key Features",
