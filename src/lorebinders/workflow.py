@@ -176,7 +176,6 @@ def _analyze_all_entities(
         [list[models.CategoryTarget], models.Chapter],
         list[models.EntityProfile],
     ],
-    batch_size: int = 5,
     progress: Callable[[models.ProgressUpdate], None] | None = None,
 ) -> list[models.EntityProfile]:
     """Analyze all entities across all their chapter appearances.
@@ -186,7 +185,7 @@ def _analyze_all_entities(
         book: The book with chapters.
         profiles_dir: Directory for persistence.
         analysis_fn: Function to analyze a batch of entities.
-        batch_size: Number of entities to analyze in one call.
+        progress: Optional callback for progress updates.
 
     Returns:
         List of all entity profiles.
@@ -213,13 +212,10 @@ def _analyze_all_entities(
             continue
 
         for category, names in cat_map.items():
-            for i in range(0, len(names), batch_size):
-                batch_targets = [
-                    models.CategoryTarget(
-                        name=category, entities=names[i : i + batch_size]
-                    )
-                ]
-                batch_tasks.append((batch_targets, chapter))
+            batch_targets = [
+                models.CategoryTarget(name=category, entities=names)
+            ]
+            batch_tasks.append((batch_targets, chapter))
 
     total_batches = len(batch_tasks)
     logger.info(
