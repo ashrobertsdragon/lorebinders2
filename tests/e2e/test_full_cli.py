@@ -13,7 +13,7 @@ from lorebinders.models import (
     SummarizerResult,
     TraitValue,
 )
-from tests.conftest import create_mock_model
+from tests.utils import create_mock_model
 
 runner = CliRunner()
 

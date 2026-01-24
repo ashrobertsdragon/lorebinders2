@@ -11,20 +11,20 @@ from lorebinders.agent import (
     load_prompt_from_assets,
     run_agent,
 )
-from lorebinders.conversion import ingest
 from lorebinders.models import (
     AgentDeps,
     AnalysisResult,
-    CategoryTarget,
     Chapter,
     EntityProfile,
     ExtractionResult,
     ProgressUpdate,
     RunConfiguration,
 )
+from lorebinders.refinement.conversion import ingest
 from lorebinders.reporting.pdf import generate_pdf_report
 from lorebinders.settings import Settings, get_settings
 from lorebinders.storage.workspace import ensure_workspace, sanitize_filename
+from lorebinders.types import CategoryTarget
 from lorebinders.workflow import build_binder
 
 

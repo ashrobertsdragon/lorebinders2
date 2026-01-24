@@ -9,15 +9,12 @@ import pytest
 from pydantic_ai.messages import ModelMessage, ModelResponse, TextPart
 from pydantic_ai.models.function import FunctionModel
 
-from lorebinders import models
+from lorebinders import models, types
 from lorebinders.agent import create_summarization_agent
-from lorebinders.models import Binder, CategoryTarget
 from lorebinders.workflow import (
-    _aggregate_extractions,
     _aggregate_profiles_to_binder,
     _analyze_all_entities,
     _binder_to_profiles,
-    _deduplicate_entity_names,
     _extract_all_chapters,
     build_binder,
 )
@@ -114,7 +111,7 @@ def _fake_extract(ctx: models.Chapter) -> dict[str, list[str]]:
 
 
 def _fake_analyze(
-    targets: list[CategoryTarget], ctx: models.Chapter
+    targets: list[types.CategoryTarget], ctx: models.Chapter
 ) -> list[models.EntityProfile]:
     """Fake analysis function for testing.
 
@@ -140,7 +137,7 @@ def _fake_analyze(
 
 
 def _fake_empty_analyze(
-    targets: list[CategoryTarget], ctx: models.Chapter
+    targets: list[types.CategoryTarget], ctx: models.Chapter
 ) -> list[models.EntityProfile]:
     """Fake analysis function that returns empty results.
 
@@ -206,44 +203,6 @@ def _mock_summarize_high(
     )
 
 
-def test_deduplicate_entity_names_merges_similar() -> None:
-    """Test that similar entity names are merged."""
-    names = ["Father", "the father", "Father"]
-    result = _deduplicate_entity_names(names)
-    assert len(result) == 1
-
-
-def test_deduplicate_entity_names_keeps_distinct() -> None:
-    """Test that distinct entity names are preserved."""
-    names = ["Alice", "Bob", "Charlie"]
-    result = _deduplicate_entity_names(names)
-    assert set(result) == {"Alice", "Bob", "Charlie"}
-
-
-def test_aggregate_extractions_merges_across_chapters() -> None:
-    """Test that extractions are merged across chapters."""
-    raw = {
-        1: {"Characters": ["Alice", "Bob"]},
-        2: {"Characters": ["Alice", "Charlie"]},
-    }
-    result = _aggregate_extractions(raw)
-
-    assert "Characters" in result
-    assert "Alice" in result["Characters"]
-    assert 1 in result["Characters"]["Alice"]
-    assert 2 in result["Characters"]["Alice"]
-
-
-def test_aggregate_extractions_deduplicates_similar_names() -> None:
-    """Test that similar names are deduplicated during aggregation."""
-    raw = {
-        1: {"Characters": ["Father", "the father"]},
-    }
-    result = _aggregate_extractions(raw)
-
-    assert len(result["Characters"]) == 1
-
-
 def test_extract_all_chapters_calls_extraction_per_chapter(
     tmp_path: Path,
 ) -> None:
@@ -294,7 +253,7 @@ def test_aggregate_profiles_to_binder_structure() -> None:
 
 def test_binder_to_profiles_reconstruction() -> None:
     """Test that binder can be reconstructed to profiles."""
-    binder: Binder = {
+    binder: types.Binder = {
         "Characters": {
             "Alice": {1: {"Role": "Hero"}, 2: {"Age": "20"}},
         }
@@ -323,7 +282,7 @@ def test_analyze_all_entities_processes_each_chapter(
     entities = {"Characters": {"Alice": [1, 2]}}
 
     def fake_analyze_batch(
-        targets: list[CategoryTarget], ctx: models.Chapter
+        targets: list[types.CategoryTarget], ctx: models.Chapter
     ) -> list[models.EntityProfile]:
         profiles = []
         for cat in targets:
@@ -354,7 +313,7 @@ def test_build_binder_orchestration(
     """Test end-to-end binder build orchestration."""
     report_path = None
 
-    def fake_report(profiles: models.Binder, path: Path) -> None:
+    def fake_report(profiles: types.Binder, path: Path) -> None:
         nonlocal report_path
         report_path = path
         path.write_text("PDF Content")
@@ -384,7 +343,7 @@ def test_summarization_threshold_filters_entities(
     summarization_agent,
 ) -> None:
     """Verify that only entities with >= 3 chapters are summarized."""
-    refined_binder: models.Binder = {
+    refined_binder: types.Binder = {
         "Characters": {
             "EntityLow": {
                 1: {"Trait": "Value"},
@@ -398,9 +357,9 @@ def test_summarization_threshold_filters_entities(
         }
     }
 
-    captured_binder: models.Binder | None = None
+    captured_binder: types.Binder | None = None
 
-    def capture_report(binder: models.Binder, path: Path) -> None:
+    def capture_report(binder: types.Binder, path: Path) -> None:
         nonlocal captured_binder
         captured_binder = binder
 

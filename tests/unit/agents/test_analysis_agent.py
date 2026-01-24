@@ -6,11 +6,11 @@ from lorebinders.agent import (
 from lorebinders.models import (
     AgentDeps,
     AnalysisResult,
-    CategoryTarget,
     TraitValue,
 )
 from lorebinders.settings import Settings
-from tests.conftest import create_mock_model, get_system_prompt
+from lorebinders.types import CategoryTarget
+from tests.utils import create_mock_model, get_system_prompt
 
 
 def test_analysis_agent_run_sync_and_prompt() -> None:

@@ -2,8 +2,8 @@ from pathlib import Path
 
 from pypdf import PdfReader
 
-from lorebinders.models import Binder
 from lorebinders.reporting.pdf import generate_pdf_report
+from lorebinders.types import Binder
 
 
 def test_generate_pdf_report_aggregated(tmp_path: Path):

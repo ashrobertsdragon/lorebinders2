@@ -10,8 +10,9 @@ from lorebinders.agent import (
     create_extraction_agent,
     run_agent,
 )
-from lorebinders.models import AgentDeps, CategoryTarget, NarratorConfig
+from lorebinders.models import AgentDeps, NarratorConfig
 from lorebinders.settings import Settings
+from lorebinders.types import CategoryTarget
 
 
 def mock_prompt_loader(filename: str) -> str:

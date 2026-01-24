@@ -4,13 +4,10 @@ from pathlib import Path
 
 from pydantic_ai import Agent
 
-from lorebinders import models
+from lorebinders import models, types
 from lorebinders.agent.summarization import summarize_binder
 from lorebinders.refinement import refine_binder
-from lorebinders.refinement.deduplication import (
-    _is_similar_key,
-    _prioritize_keys,
-)
+from lorebinders.refinement.sorting import sort_extractions
 from lorebinders.storage.extractions import (
     extraction_exists,
     load_extraction,
@@ -75,79 +72,12 @@ def _extract_all_chapters(
     return raw_extractions
 
 
-def _deduplicate_entity_names(
-    names: list[str],
-) -> list[str]:
-    """Deduplicate a list of entity names using existing similarity logic.
-
-    Returns:
-        List of deduplicated entity names.
-    """
-    if len(names) <= 1:
-        return names
-
-    canonical_names: list[str] = []
-    for name in names:
-        found_match = False
-        for i, existing in enumerate(canonical_names):
-            if _is_similar_key(name, existing):
-                _, keeper = _prioritize_keys(name, existing)
-                canonical_names[i] = keeper
-                found_match = True
-                break
-        if not found_match:
-            canonical_names.append(name)
-    return canonical_names
-
-
-def _aggregate_extractions(
-    raw_extractions: dict[int, dict[str, list[str]]],
-) -> dict[str, dict[str, list[int]]]:
-    """Aggregate extracted names into entity -> chapters mapping.
-
-    Args:
-        raw_extractions: Map of chapter number to category to names.
-
-    Returns:
-        Map of category to entity name to list of chapter numbers.
-    """
-    aggregated: dict[str, dict[str, list[int]]] = {}
-
-    for chapter_num, categories in raw_extractions.items():
-        for category, names in categories.items():
-            if category not in aggregated:
-                aggregated[category] = {}
-
-            deduped = _deduplicate_entity_names(names)
-            for name in deduped:
-                clean_name = name.strip()
-                if not clean_name:
-                    continue
-
-                found = False
-                for existing in list(aggregated[category].keys()):
-                    if _is_similar_key(clean_name, existing):
-                        _, keeper = _prioritize_keys(clean_name, existing)
-                        if keeper != existing:
-                            aggregated[category][keeper] = aggregated[
-                                category
-                            ].pop(existing)
-                        if chapter_num not in aggregated[category][keeper]:
-                            aggregated[category][keeper].append(chapter_num)
-                        found = True
-                        break
-                if not found:
-                    aggregated[category][clean_name] = [chapter_num]
-
-    return aggregated
-
-
 def _analyze_batch(
-    target_categories: list[models.CategoryTarget],
+    target_categories: list[types.CategoryTarget],
     chapter: models.Chapter,
     profiles_dir: Path,
     analysis_fn: Callable[
-        [list[models.CategoryTarget], models.Chapter],
+        [list[types.CategoryTarget], models.Chapter],
         list[models.EntityProfile],
     ],
 ) -> list[models.EntityProfile]:
@@ -157,7 +87,7 @@ def _analyze_batch(
         List of EntityProfile objects (loaded or newly analyzed).
     """
     profiles: list[models.EntityProfile] = []
-    to_analyze: list[models.CategoryTarget] = []
+    to_analyze: list[types.CategoryTarget] = []
 
     for cat_target in target_categories:
         category = cat_target["name"]
@@ -172,7 +102,7 @@ def _analyze_batch(
 
         if entities_to_run:
             to_analyze.append(
-                models.CategoryTarget(name=category, entities=entities_to_run)
+                types.CategoryTarget(name=category, entities=entities_to_run)
             )
 
     if not to_analyze:
@@ -191,7 +121,7 @@ def _analyze_all_entities(
     book: models.Book,
     profiles_dir: Path,
     analysis_fn: Callable[
-        [list[models.CategoryTarget], models.Chapter],
+        [list[types.CategoryTarget], models.Chapter],
         list[models.EntityProfile],
     ],
     progress: Callable[[models.ProgressUpdate], None] | None = None,
@@ -210,7 +140,7 @@ def _analyze_all_entities(
     """
     chapter_map = {ch.number: ch for ch in book.chapters}
 
-    chapter_entities: models.CategoryChapterData = {}
+    chapter_entities: types.CategoryChapterData = {}
 
     for category, entity_chapters in entities.items():
         for entity_name, chapters in entity_chapters.items():
@@ -231,7 +161,7 @@ def _analyze_all_entities(
 
         for category, names in cat_map.items():
             batch_targets = [
-                models.CategoryTarget(name=category, entities=names)
+                types.CategoryTarget(name=category, entities=names)
             ]
             batch_tasks.append((batch_targets, chapter))
 
@@ -264,13 +194,13 @@ def _analyze_all_entities(
 
 def _aggregate_profiles_to_binder(
     profiles: list[models.EntityProfile],
-) -> models.Binder:
+) -> types.Binder:
     """Convert list of profiles to binder dict format.
 
     Returns:
         Binder dict: {Category: {Name: {ChapterNum: Traits}}}
     """
-    binder: models.Binder = {}
+    binder: types.Binder = {}
 
     for p in profiles:
         if p.category not in binder:
@@ -283,7 +213,7 @@ def _aggregate_profiles_to_binder(
 
 
 def _binder_to_profiles(
-    binder: models.Binder,
+    binder: types.Binder,
 ) -> list[models.EntityProfile]:
     """Convert binder dict format back to list of profiles.
 
@@ -316,8 +246,8 @@ def _binder_to_profiles(
 
 
 def _get_summarizable_binder(
-    binder: models.Binder, threshold: int = 3
-) -> models.Binder:
+    binder: types.Binder, threshold: int = 3
+) -> types.Binder:
     """Filter binder for entities meeting chapter threshold.
 
     Args:
@@ -327,7 +257,7 @@ def _get_summarizable_binder(
     Returns:
         A new binder containing only qualifying entities.
     """
-    result: models.Binder = {}
+    result: types.Binder = {}
     for category, entities in binder.items():
         if not isinstance(entities, dict):
             continue
@@ -339,8 +269,8 @@ def _get_summarizable_binder(
 
 
 def _filter_category_entities(
-    entities: models.EntityData, threshold: int
-) -> models.EntityData:
+    entities: types.EntityData, threshold: int
+) -> types.EntityData:
     """Filter entities within a category by chapter count.
 
     Args:
@@ -350,7 +280,7 @@ def _filter_category_entities(
     Returns:
         Dictionary of qualifying entities.
     """
-    filtered: models.EntityData = {}
+    filtered: types.EntityData = {}
     for name, data in entities.items():
         if not isinstance(data, dict):
             continue
@@ -359,9 +289,7 @@ def _filter_category_entities(
     return filtered
 
 
-def _merge_summary_results(
-    target: models.Binder, source: models.Binder
-) -> None:
+def _merge_summary_results(target: types.Binder, source: types.Binder) -> None:
     """Merge summary fields from source binder into target binder.
 
     Args:
@@ -375,7 +303,7 @@ def _merge_summary_results(
 
 
 def _merge_category_summaries(
-    target: models.Binder, category: str, source_entities: models.EntityData
+    target: types.Binder, category: str, source_entities: types.EntityData
 ) -> None:
     """Merge summaries for a specific category.
 
@@ -399,7 +327,7 @@ def _merge_category_summaries(
 
 
 def _update_entity_summary(
-    entities: models.EntityData, name: str, summary: str | models.TraitDict
+    entities: types.EntityData, name: str, summary: str | types.TraitDict
 ) -> None:
     """Update a single entity's summary if it exists in target.
 
@@ -421,10 +349,10 @@ def build_binder(
     ingestion: Callable[[Path, Path], models.Book],
     extraction: Callable[[models.Chapter], dict[str, list[str]]],
     analysis: Callable[
-        [list[models.CategoryTarget], models.Chapter],
+        [list[types.CategoryTarget], models.Chapter],
         list[models.EntityProfile],
     ],
-    reporting: Callable[[models.Binder, Path], None],
+    reporting: Callable[[types.Binder, Path], None],
     summarization_agent: Agent[models.AgentDeps, models.SummarizerResult]
     | None = None,
     progress: Callable[[models.ProgressUpdate], None] | None = None,
@@ -457,7 +385,11 @@ def build_binder(
         book, extraction, extractions_dir, progress
     )
 
-    entities = _aggregate_extractions(raw_extractions)
+    narrator_name = (
+        config.narrator_config.name if config.narrator_config else None
+    )
+
+    entities = sort_extractions(raw_extractions, narrator_name)
 
     profiles = _analyze_all_entities(
         entities,
@@ -469,9 +401,6 @@ def build_binder(
 
     raw_binder = _aggregate_profiles_to_binder(profiles)
 
-    narrator_name = (
-        config.narrator_config.name if config.narrator_config else None
-    )
     refined_binder = refine_binder(raw_binder, narrator_name)
 
     summarizable_binder = _get_summarizable_binder(refined_binder, 3)

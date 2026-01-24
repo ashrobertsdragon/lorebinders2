@@ -13,18 +13,14 @@ from lorebinders.agent.factory import (
     load_prompt_from_assets,
     run_agent,
 )
-from lorebinders.models import (
-    AgentDeps,
-    Binder,
-    EntityEntry,
-    SummarizerResult,
-)
+from lorebinders.models import AgentDeps, SummarizerResult
 from lorebinders.settings import get_settings
 from lorebinders.storage.summaries import (
     load_summary,
     save_summary,
     summary_exists,
 )
+from lorebinders.types import Binder, EntityEntry
 
 logger = logging.getLogger(__name__)
 

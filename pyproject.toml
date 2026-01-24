@@ -112,7 +112,7 @@ convention = "google"
 
 [tool.pytest]
 addopts = ["--cov=lorebinders", "--cov-fail-under=80"]
-pythonpath = ["src"]
+pythonpath = ["src", "."]
 testpaths = ["tests"]
 markers = ["external: mark a test as requiring external an external dependency"]
 
