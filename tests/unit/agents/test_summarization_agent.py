@@ -17,8 +17,9 @@ from lorebinders.agent import (
     run_agent,
 )
 from lorebinders.agent.summarization import summarize_binder
-from lorebinders.models import AgentDeps, Binder, SummarizerResult
+from lorebinders.models import AgentDeps, SummarizerResult
 from lorebinders.settings import Settings
+from lorebinders.types import Binder
 
 
 def test_summarization_agent_run_sync_and_prompt() -> None:

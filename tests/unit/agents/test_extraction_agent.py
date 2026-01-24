@@ -5,7 +5,7 @@ from lorebinders.agent import (
 )
 from lorebinders.models import AgentDeps, NarratorConfig
 from lorebinders.settings import Settings
-from tests.conftest import create_mock_model, get_system_prompt
+from tests.utils import create_mock_model, get_system_prompt
 
 
 def test_extraction_agent_run_sync_and_prompt() -> None:

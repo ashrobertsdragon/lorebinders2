@@ -11,8 +11,8 @@ from reportlab.platypus import (
     Spacer,
 )
 
-from lorebinders.models import Binder, EntityEntry
 from lorebinders.reporting.styles import get_document_styles
+from lorebinders.types import Binder, EntityEntry
 
 
 def _process_chapter_traits(

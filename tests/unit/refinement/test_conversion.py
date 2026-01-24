@@ -3,13 +3,13 @@ from unittest.mock import patch
 
 import pytest
 
-from lorebinders.conversion import _split_chapters, ingest
 from lorebinders.models import Book
+from lorebinders.refinement.conversion import _split_chapters, ingest
 
 
 @pytest.fixture
 def mock_ebook2text():
-    with patch("lorebinders.conversion.ebook2text") as mock:
+    with patch("lorebinders.refinement.conversion.ebook2text") as mock:
         yield mock
 
 

@@ -9,7 +9,7 @@ from pydantic_ai.messages import (
 )
 from pydantic_ai.models.function import FunctionModel
 
-from lorebinders import models
+from lorebinders import models, types
 from lorebinders.agent import (
     create_analysis_agent,
     create_extraction_agent,
@@ -123,8 +123,8 @@ def test_create_analyzer(test_deps) -> None:
 
         chapter = models.Chapter(number=1, title="Ch1", content="Context")
 
-        categories: list[models.CategoryTarget] = [
-            models.CategoryTarget(name="Characters", entities=["Alice"])
+        categories: list[types.CategoryTarget] = [
+            types.CategoryTarget(name="Characters", entities=["Alice"])
         ]
         profiles = analyzer(categories, chapter)
 

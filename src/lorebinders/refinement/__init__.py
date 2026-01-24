@@ -4,7 +4,6 @@ import logging
 from typing import Any
 
 from lorebinders.refinement.cleaning import clean_binder
-from lorebinders.refinement.deduplication import resolve_binder
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +26,4 @@ def refine_binder(
     logger.info("Starting cleaning phase")
     cleaned_binder = clean_binder(binder, narrator_name)
 
-    logger.info("Starting resolution phase")
-    resolved_binder = resolve_binder(cleaned_binder)
-
-    return resolved_binder
+    return cleaned_binder

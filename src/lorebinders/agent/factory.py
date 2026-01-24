@@ -8,12 +8,12 @@ from pydantic_ai.tools import AgentDepsT
 from lorebinders.models import (
     AgentDeps,
     AnalysisResult,
-    CategoryTarget,
     ExtractionResult,
     NarratorConfig,
     SummarizerResult,
 )
 from lorebinders.settings import Settings, get_settings
+from lorebinders.types import CategoryTarget
 
 
 def load_prompt_from_assets(filename: str) -> str:

@@ -1,31 +1,12 @@
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, TypedDict
+from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, Field
-from typing_extensions import NotRequired
 
 if TYPE_CHECKING:
     from lorebinders.settings import Settings
-
-
-class CategoryTarget(TypedDict):
-    """Target category for batch analysis."""
-
-    name: str
-    traits: NotRequired[list[str]]
-    entities: list[str]
-
-
-CategoryTraits = dict[str, list[str]]
-CategoryChapterData = dict[int, CategoryTraits]
-CategoryData = dict[str, CategoryChapterData]
-TraitDict = dict[str, str | list[str]]
-EntityChapterData = dict[int, TraitDict]
-EntityEntry = dict[int | str, TraitDict | str]
-EntityData = dict[str, EntityEntry]
-Binder = dict[str, EntityData]
 
 
 @dataclass
