@@ -49,6 +49,15 @@ def _is_similar_key(key1: str, key2: str) -> bool:
     if (detitled_k1 + " " in detitled_k2) or (detitled_k2 + " " in detitled_k1):
         return True
 
+    destructured_match = any(
+        [
+            (detitled_k1 + " " in k2 + " "),
+            (detitled_k2 + " " in k1 + " "),
+            (k1 + " " in detitled_k2 + " "),
+            (k2 + " " in detitled_k1 + " "),
+        ]
+    )
+
     if detitled_k1 != k1 or detitled_k2 != k2:
         return any(
             [
@@ -57,14 +66,11 @@ def _is_similar_key(key1: str, key2: str) -> bool:
                 detitled_k1 == detitled_k2,
                 detitled_k1 == singular_k2,
                 singular_k1 == detitled_k2,
-                detitled_k1 + " " in k2,
-                detitled_k2 + " " in k1,
-                k1 + " " in detitled_k2,
-                k2 + " " in detitled_k1,
+                destructured_match,
             ]
         )
 
-    return False
+    return destructured_match
 
 
 def _prioritize_keys(key1: str, key2: str) -> tuple[str, str]:

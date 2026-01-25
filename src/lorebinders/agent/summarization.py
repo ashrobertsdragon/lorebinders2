@@ -1,6 +1,5 @@
 """Entity summarization using AI agents."""
 
-import copy
 import json
 import logging
 from pathlib import Path
@@ -39,6 +38,49 @@ def _format_context(data: EntityEntry) -> str:
     return str(data)
 
 
+def _sumarize_entity(
+    summaries_dir: Path,
+    category: str,
+    name: str,
+    agent: Agent[AgentDeps, SummarizerResult] | None,
+    prompt: str,
+) -> str:
+    """Summarize an entity using the AI agent.
+
+    Args:
+        summaries_dir (Path): Directory for caching summaries.
+        category (str): The category of the entity.
+        name (str): The name of the entity.
+        agent (Agent | None): The agent to use for summarization.
+        prompt (str): The prompt to use for summarization.
+
+    Returns:
+        str: The summary text.
+    """
+    if agent is None:
+        agent = create_summarization_agent()
+
+    if summary_exists(summaries_dir, category, name):
+        logger.info(f"Loading cached summary for {category}: {name}")
+        summary_text = load_summary(summaries_dir, category, name)
+        return summary_text
+
+    logger.info(f"Summarizing {category}: {name}")
+    try:
+        deps = AgentDeps(
+            settings=get_settings(),
+            prompt_loader=load_prompt_from_assets,
+        )
+        result: SummarizerResult = run_agent(agent, prompt, deps)
+        summary_text = result.summary
+        save_summary(summaries_dir, category, name, summary_text)
+        return summary_text
+
+    except Exception as e:
+        logger.error(f"Failed to summarize {name}: {e}")
+        raise
+
+
 def summarize_binder(
     binder: Binder,
     summaries_dir: Path,
@@ -50,17 +92,13 @@ def summarize_binder(
     using the AI agent, and appending it to the entity's data.
 
     Args:
-        binder: The refined binder dictionary.
-        summaries_dir: Directory for caching summaries.
-        agent: Optional agent instance for testing.
+        binder (Binder): The refined binder dictionary.
+        summaries_dir (Path): Directory for caching summaries.
+        agent (Agent | None): The agent to use for summarization.
 
     Returns:
-        The binder with added summaries.
+        Binder: The binder with added summaries.
     """
-    summarized_binder = copy.deepcopy(binder)
-    if agent is None:
-        agent = create_summarization_agent()
-
     for category, entities in binder.items():
         if not isinstance(entities, dict):
             continue
@@ -73,26 +111,8 @@ def summarize_binder(
                 category=category,
                 context_data=context_str,
             )
+            binder[category][name]["Summary"] = _sumarize_entity(
+                summaries_dir, category, name, agent, prompt
+            )
 
-            try:
-                if summary_exists(summaries_dir, category, name):
-                    logger.info(
-                        f"Loading cached summary for {category}: {name}"
-                    )
-                    summary_text = load_summary(summaries_dir, category, name)
-                else:
-                    logger.info(f"Summarizing {category}: {name}")
-                    deps = AgentDeps(
-                        settings=get_settings(),
-                        prompt_loader=load_prompt_from_assets,
-                    )
-                    result: SummarizerResult = run_agent(agent, prompt, deps)
-                    summary_text = result.summary
-                    save_summary(summaries_dir, category, name, summary_text)
-
-                summarized_binder[category][name]["Summary"] = summary_text
-            except Exception as e:
-                logger.error(f"Failed to summarize {name}: {e}")
-                raise
-
-    return summarized_binder
+    return binder

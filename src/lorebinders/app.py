@@ -50,10 +50,10 @@ def merge_traits(
             effective_traits[category] = []
 
         current_set = set(effective_traits[category])
-        for t in traits:
-            if t not in current_set:
-                effective_traits[category].append(t)
-                current_set.add(t)
+        for trait in traits:
+            if trait not in current_set:
+                effective_traits[category].append(trait)
+                current_set.add(trait)
 
     for category in config.custom_categories:
         if category not in effective_traits:
@@ -126,14 +126,14 @@ def create_analyzer(
         results = run_agent(agent, full_prompt, deps)
 
         profiles = []
-        for r in results:
+        for result in results:
             profile_traits: dict[str, str | list[str]] = {
-                t.trait: t.value for t in r.traits
+                trait.trait: trait.value for trait in result.traits
             }
             profiles.append(
                 EntityProfile(
-                    name=r.entity_name,
-                    category=r.category,
+                    name=result.entity_name,
+                    category=result.category,
                     chapter_number=context.number,
                     traits=profile_traits,
                     confidence_score=0.8,
