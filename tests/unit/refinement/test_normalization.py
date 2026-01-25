@@ -15,6 +15,12 @@ from lorebinders.refinement.normalization import (
         ("The Kitchen", "Kitchen"),
         ("John Smith", "John Smith"),
         ("Captain", "Captain"),
+        ("General Kenobi", "Kenobi"),
+        ("Mrs. Robinson", "Robinson"),
+        ("Saint Nick", "Saint Nick"),
+        ("Sir Arthur", "Arthur"),
+        ("King George", "George"),
+        ("Queen Victoria", "Victoria"),
         ("", ""),
     ],
 )
