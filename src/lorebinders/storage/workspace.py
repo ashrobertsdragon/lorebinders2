@@ -61,6 +61,9 @@ def clean_workspace(
         author: The name of the author.
         title: The title of the book.
         base_path: Root directory for workspaces. Defaults to "work".
+
+    Raises:
+        ValueError: If the resolved path escapes the workspace boundary.
     """
     base = (
         base_path
@@ -71,5 +74,9 @@ def clean_workspace(
     safe_title = sanitize_filename(title)
 
     path = base / safe_author / safe_title
+
+    if not path.resolve().is_relative_to(base.resolve()):
+        raise ValueError(f"Path {path} escapes workspace boundary")
+
     if path.exists():
         shutil.rmtree(path)

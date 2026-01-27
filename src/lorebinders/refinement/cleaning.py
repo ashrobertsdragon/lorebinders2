@@ -22,6 +22,8 @@ NARRATOR_PATTERN = re.compile(
 
 LOCATION_SUFFIX_PATTERN = re.compile(r"\s*[\(\-].*", re.IGNORECASE)
 
+MAX_ENTITY_NAME_LENGTH = 200
+
 
 def clean_str(text: str) -> str:
     """Clean 'none found' from strings.
@@ -218,9 +220,21 @@ def standardize_location(name: str) -> str:
 def _clean_entity_name(name: str, category: str) -> str:
     """Clean an entity name based on its category.
 
+    Args:
+        name: The entity name to clean.
+        category: The entity category.
+
     Returns:
         The cleaned entity name.
+
+    Raises:
+        ValueError: If the entity name exceeds maximum length.
     """
+    if len(name) > MAX_ENTITY_NAME_LENGTH:
+        raise ValueError(
+            f"Entity name exceeds maximum length: {len(name)} chars"
+        )
+
     match category.lower():
         case "locations":
             return standardize_location(name)
