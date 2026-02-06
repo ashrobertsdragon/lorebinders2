@@ -23,7 +23,7 @@ def settings_config(model_provider: str) -> ModelSettings:
             return AnthropicModelSettings(
                 anthropic_thinking={"type": "disabled"}
             )
-        case "google" | "vertexai" | "gemini":
+        case "google-gla" | "google-vertex":
             from pydantic_ai.models.google import GoogleModelSettings
 
             return GoogleModelSettings(
