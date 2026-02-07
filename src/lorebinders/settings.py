@@ -18,9 +18,9 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    extraction_model: str = "openai:gpt-5-nano"
-    analysis_model: str = "openai:gpt-5-mini"
-    summarization_model: str = "openai:gpt-5-nano"
+    extraction_model: str = "openrouter:bytedance/seed-1.6-flash"
+    analysis_model: str = "openrouter:deepseek/deepseek-v3.2"
+    summarization_model: str = "openrouter:bytedance/seed-1.6-flash"
 
     workspace_base_path: Path = Path("work")
 
