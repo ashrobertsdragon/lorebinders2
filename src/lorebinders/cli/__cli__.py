@@ -19,6 +19,7 @@ from lorebinders.models import ProgressUpdate
 
 cli = typer.Typer(no_args_is_help=True)
 console = Console()
+logger = logging.getLogger("lorebinders.cli")
 
 
 @cli.command()
@@ -72,6 +73,10 @@ def main(
         if verbose:
             logging.getLogger("lorebinders").setLevel(logging.DEBUG)
 
+    logger.info(f"Starting LoreBinders CLI with book: {book_path}")
+    if verbose:
+        logger.debug(f"Configuration: {config}")
+
     console.print("[bold blue]Starting LoreBinders...[/bold blue]")
 
     try:
@@ -111,10 +116,14 @@ def main(
                 config, progress=handle_progress, log_file=log_file
             )
 
+        logger.info(
+            f"LoreBinders completed successfully. Output: {output_path}"
+        )
         console.print(
             f"[bold green]Complete![/bold green] Report saved to: {output_path}"
         )
     except Exception as e:
+        logger.exception("LoreBinders run failed")
         console.print(f"[bold red]Build Failed:[/bold red] {e}")
         raise
 

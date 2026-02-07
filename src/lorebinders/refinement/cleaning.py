@@ -1,5 +1,6 @@
 """Entity cleaning logic for refinement."""
 
+import logging
 import re
 
 from lorebinders.refinement.normalization import (
@@ -269,6 +270,9 @@ def _process_category_entities(
     return new_entities
 
 
+logger = logging.getLogger(__name__)
+
+
 def clean_binder(binder: Binder, narrator_name: str | None) -> Binder:
     """Full cleaning pipeline.
 
@@ -279,10 +283,15 @@ def clean_binder(binder: Binder, narrator_name: str | None) -> Binder:
     Returns:
         The cleaned binder.
     """
+    logger.debug("Starting binder cleaning...")
+
     if narrator_name:
+        logger.debug(f"Replacing narrator references with '{narrator_name}'")
         binder = replace_narrator(binder, narrator_name)
 
-    return {
+    cleaned = {
         category: _process_category_entities(entities, category)
         for category, entities in binder.items()
     }
+    logger.debug("Binder cleaning complete.")
+    return cleaned

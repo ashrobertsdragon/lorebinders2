@@ -1,5 +1,8 @@
 import json
+import logging
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 
 def _get_path(summaries_dir: Path, category: str, entity_name: str) -> Path:
@@ -42,6 +45,7 @@ def save_summary(
     path.parent.mkdir(parents=True, exist_ok=True)
     with open(path, "w", encoding="utf-8") as f:
         json.dump({"entity_name": entity_name, "summary": summary}, f, indent=2)
+    logger.debug(f"Saved summary: {category}/{entity_name}")
 
 
 def load_summary(summaries_dir: Path, category: str, entity_name: str) -> str:

@@ -3,6 +3,7 @@
 Handles aggregation, cleaning, and deduplication of entities BEFORE analysis.
 """
 
+import logging
 import re
 
 from lorebinders.refinement.deduplication import (
@@ -73,6 +74,9 @@ def _deduplicate_entity_names(names: list[str]) -> list[str]:
     return list(set(canonical_names))
 
 
+logger = logging.getLogger(__name__)
+
+
 def sort_extractions(
     raw_extractions: CategoryChapterData,
     narrator_name: str | None = None,
@@ -106,6 +110,12 @@ def sort_extractions(
             unique_names = list(set(valid_names))
             deduped_names = _deduplicate_entity_names(unique_names)
 
+            if len(unique_names) != len(deduped_names):
+                logger.debug(
+                    f"Deduplicated {category} in ch{chapter_num}: "
+                    f"{len(unique_names)} -> {len(deduped_names)}"
+                )
+
             for name in deduped_names:
                 found_match = False
 
@@ -124,6 +134,10 @@ def sort_extractions(
                                     chapter_num
                                 )
                         else:
+                            logger.debug(
+                                f"Merging '{existing}' into better name "
+                                f"'{name}'"
+                            )
                             chapters = aggregated[category].pop(existing)
                             aggregated[category][name] = chapters
                             if chapter_num not in aggregated[category][name]:

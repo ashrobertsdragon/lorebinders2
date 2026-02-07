@@ -61,7 +61,7 @@ def _sumarize_entity(
         agent = create_summarization_agent()
 
     if summary_exists(summaries_dir, category, name):
-        logger.info(f"Loading cached summary for {category}: {name}")
+        logger.debug(f"Loading cached summary for {category}: {name}")
         summary_text = load_summary(summaries_dir, category, name)
         return summary_text
 
@@ -74,6 +74,7 @@ def _sumarize_entity(
         result: SummarizerResult = run_agent(agent, prompt, deps)
         summary_text = result.summary
         save_summary(summaries_dir, category, name, summary_text)
+        logger.debug(f"Summary saved for {category}: {name}")
         return summary_text
 
     except Exception as e:

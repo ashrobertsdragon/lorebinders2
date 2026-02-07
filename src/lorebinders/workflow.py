@@ -379,18 +379,25 @@ def build_binder(
     summaries_dir = output_dir / "summaries"
     summaries_dir.mkdir(exist_ok=True)
 
+    logger.debug("Ingesting book...")
     book = ingestion(config.book_path, output_dir)
+    logger.debug(f"Book ingested. found {len(book.chapters)} chapters.")
 
+    logger.debug("Starting extraction phase...")
     raw_extractions = _extract_all_chapters(
         book, extraction, extractions_dir, progress
     )
+    logger.debug("Extraction phase complete.")
 
     narrator_name = (
         config.narrator_config.name if config.narrator_config else None
     )
 
+    logger.debug("Sorting extractions...")
     entities = sort_extractions(raw_extractions, narrator_name)
+    logger.debug("Extractions sorted.")
 
+    logger.debug("Starting analysis phase...")
     profiles = _analyze_all_entities(
         entities,
         book,
@@ -398,18 +405,28 @@ def build_binder(
         analysis,
         progress=progress,
     )
+    logger.debug("Analysis phase complete.")
 
+    logger.debug("Aggregating profiles...")
     raw_binder = _aggregate_profiles_to_binder(profiles)
 
+    logger.debug("Refining binder...")
     refined_binder = refine_binder(raw_binder, narrator_name)
 
+    logger.debug("Filtering for summarization...")
     summarizable_binder = _get_summarizable_binder(refined_binder, 3)
 
+    logger.debug("Starting summarization phase...")
     partial_summarized_binder = summarize_binder(
         summarizable_binder, summaries_dir, summarization_agent
     )
+    logger.debug("Summarization phase complete.")
 
+    logger.debug("Merging summaries...")
     _merge_summary_results(refined_binder, partial_summarized_binder)
 
     safe_title = sanitize_filename(config.book_title)
-    reporting(refined_binder, output_dir / f"{safe_title}_story_bible.pdf")
+    output_file = output_dir / f"{safe_title}_story_bible.pdf"
+    logger.debug(f"Generating report to {output_file}...")
+    reporting(refined_binder, output_file)
+    logger.debug("Report generation complete.")

@@ -1,6 +1,9 @@
+import logging
 from pathlib import Path
 
 from lorebinders import models
+
+logger = logging.getLogger(__name__)
 
 
 def _get_path(
@@ -54,6 +57,7 @@ def save_profile(
     path = _get_path(profiles_dir, chapter_num, profile.category, profile.name)
     with open(path, "w", encoding="utf-8") as f:
         f.write(profile.model_dump_json(indent=2))
+    logger.debug(f"Saved profile: {profile.category}/{profile.name}")
 
 
 def load_profile(

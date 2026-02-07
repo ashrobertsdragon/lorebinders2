@@ -1,3 +1,4 @@
+import logging
 from pathlib import Path
 
 from pydantic_ai import Agent, RunContext
@@ -27,6 +28,9 @@ def load_prompt_from_assets(filename: str) -> str:
     )
 
 
+logger = logging.getLogger(__name__)
+
+
 def create_agent(
     model_name: str,
     deps_type: type[AgentDepsT],
@@ -43,6 +47,7 @@ def create_agent(
     Returns:
         A configured Agent instance.
     """
+    logger.debug(f"Creating agent for model: {model_name}")
     return Agent(
         model_name,
         deps_type=deps_type,
@@ -68,10 +73,16 @@ def run_agent(
     Returns:
         The structured output from the agent.
     """
-    result = agent.run_sync(
-        user_prompt, deps=deps, model_settings=model_settings
-    )
-    return result.output
+    logger.debug(f"Running agent with model: {agent.model.name()}")
+    try:
+        result = agent.run_sync(
+            user_prompt, deps=deps, model_settings=model_settings
+        )
+        logger.debug("Agent run completed successfully")
+        return result.output
+    except Exception as e:
+        logger.error(f"Agent run failed: {e}")
+        raise
 
 
 def create_extraction_agent(

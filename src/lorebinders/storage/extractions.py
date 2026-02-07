@@ -1,5 +1,8 @@
 import json
+import logging
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 
 def _get_path(extractions_dir: Path, chapter_num: int) -> Path:
@@ -35,6 +38,7 @@ def save_extraction(
     path.parent.mkdir(parents=True, exist_ok=True)
     with open(path, "w", encoding="utf-8") as f:
         json.dump(extraction, f, indent=2)
+    logger.debug(f"Saved extraction for chapter {chapter_num}")
 
 
 def load_extraction(
@@ -51,4 +55,5 @@ def load_extraction(
     """
     path = _get_path(extractions_dir, chapter_num)
     with open(path, encoding="utf-8") as f:
+        logger.debug(f"Loaded extraction for chapter {chapter_num}")
         return json.load(f)
