@@ -9,17 +9,8 @@ from lorebinders import models
 from lorebinders.agent.summarization import summarize_binder
 from lorebinders.refinement.cleaning import clean_traits
 from lorebinders.refinement.sorting import sort_extractions
-from lorebinders.storage.extractions import (
-    extraction_exists,
-    load_extraction,
-    save_extraction,
-)
-from lorebinders.storage.profiles import (
-    load_profile,
-    profile_exists,
-    save_profile,
-)
-from lorebinders.storage.workspace import ensure_workspace, sanitize_filename
+from lorebinders.storage.provider import FilesystemStorage, StorageProvider
+from lorebinders.storage.workspace import sanitize_filename
 
 logger = logging.getLogger(__name__)
 
@@ -30,9 +21,13 @@ async def _extract_chapter(
     extractions_dir: Path,
     idx: int,
     total: int,
+    semaphore: asyncio.Semaphore,
+    storage: StorageProvider,
     progress: Callable[[models.ProgressUpdate], None] | None = None,
 ) -> tuple[int, dict[str, list[str]]]:
-    """Extract entities from a single chapter.
+    """Extract entities from a chapter.
+
+    Uses throttling and abstracted storage.
 
     Args:
         chapter: The chapter to extract from.
@@ -40,6 +35,8 @@ async def _extract_chapter(
         extractions_dir: The directory to save extractions to.
         idx: The current chapter index.
         total: The total number of chapters.
+        semaphore: Semaphore for concurrency control.
+        storage: The storage provider for persistence.
         progress: Optional callback for progress updates.
 
     Returns:
@@ -55,12 +52,13 @@ async def _extract_chapter(
             )
         )
 
-    if extraction_exists(extractions_dir, chapter.number):
+    if storage.extraction_exists(extractions_dir, chapter.number):
         logger.info(f"Loading cached extraction for chapter {chapter.number}")
-        result = load_extraction(extractions_dir, chapter.number)
+        result = storage.load_extraction(extractions_dir, chapter.number)
     else:
-        result = await extraction_fn(chapter)
-        save_extraction(extractions_dir, chapter.number, result)
+        async with semaphore:
+            result = await extraction_fn(chapter)
+            storage.save_extraction(extractions_dir, chapter.number, result)
 
     return chapter.number, result
 
@@ -69,14 +67,16 @@ async def _extract_all_chapters(
     book: models.Book,
     extraction_fn: Callable[[models.Chapter], Awaitable[dict[str, list[str]]]],
     extractions_dir: Path,
+    storage: StorageProvider,
     progress: Callable[[models.ProgressUpdate], None] | None = None,
 ) -> dict[int, dict[str, list[str]]]:
-    """Extract entities from all chapters in parallel.
+    """Extract entities from all chapters in parallel with throttling.
 
     Args:
         book: The book to extract from.
         extraction_fn: The function to use for extraction.
         extractions_dir: The directory to save extractions to.
+        storage: The storage provider for persistence.
         progress: Optional callback for progress updates.
 
     Returns:
@@ -85,6 +85,8 @@ async def _extract_all_chapters(
     total_chapters = len(book.chapters)
     logger.info(f"Extracting entities from {total_chapters} chapters")
 
+    semaphore = asyncio.Semaphore(10)
+
     tasks = [
         _extract_chapter(
             chapter,
@@ -92,6 +94,8 @@ async def _extract_all_chapters(
             extractions_dir,
             idx,
             total_chapters,
+            semaphore,
+            storage,
             progress,
         )
         for idx, chapter in enumerate(book.chapters, 1)
@@ -109,14 +113,16 @@ async def _analyze_batch(
         [list[models.CategoryTarget], models.Chapter],
         Awaitable[list[models.EntityProfile]],
     ],
+    storage: StorageProvider,
 ) -> list[models.EntityProfile]:
-    """Analyze a batch of entities synchronously for caching.
+    """Analyze a batch of entities synchronously with abstracted storage.
 
     Args:
         target_categories: The categories and entities to analyze.
         chapter: The chapter context for analysis.
         profiles_dir: The directory to save profiles to.
         analysis_fn: The function to use for analysis.
+        storage: The storage provider for persistence.
 
     Returns:
         A list of analyzed entity profiles.
@@ -128,9 +134,13 @@ async def _analyze_batch(
         category = cat_target.name
         entities_to_run = []
         for name in cat_target.entities:
-            if profile_exists(profiles_dir, chapter.number, category, name):
+            if storage.profile_exists(
+                profiles_dir, chapter.number, category, name
+            ):
                 profiles.append(
-                    load_profile(profiles_dir, chapter.number, category, name)
+                    storage.load_profile(
+                        profiles_dir, chapter.number, category, name
+                    )
                 )
             else:
                 entities_to_run.append(name)
@@ -145,7 +155,7 @@ async def _analyze_batch(
 
     analyzed_profiles = await analysis_fn(to_analyze, chapter)
     for p in analyzed_profiles:
-        save_profile(profiles_dir, chapter.number, p)
+        storage.save_profile(profiles_dir, chapter.number, p)
         profiles.append(p)
 
     return profiles
@@ -159,15 +169,17 @@ async def _analyze_all_entities(
         [list[models.CategoryTarget], models.Chapter],
         Awaitable[list[models.EntityProfile]],
     ],
+    storage: StorageProvider,
     progress: Callable[[models.ProgressUpdate], None] | None = None,
 ) -> list[models.EntityProfile]:
-    """Analyze all entities sequentially across all chapter appearances.
+    """Analyze all entities sequentially with abstracted storage.
 
     Args:
         entities: The sorted extractions to analyze.
         book: The book context.
         profiles_dir: The directory to save profiles to.
         analysis_fn: The function to use for analysis.
+        storage: The storage provider for persistence.
         progress: Optional callback for progress updates.
 
     Returns:
@@ -219,7 +231,7 @@ async def _analyze_all_entities(
                 )
             )
         batch_profiles = await _analyze_batch(
-            batch, chapter, profiles_dir, analysis_fn
+            batch, chapter, profiles_dir, analysis_fn, storage
         )
         profiles.extend(batch_profiles)
 
@@ -239,8 +251,7 @@ def _aggregate_to_binder(
     """
     binder = models.Binder()
     for p in profiles:
-        cleaned = clean_traits(p.traits)
-        if cleaned:
+        if cleaned := clean_traits(p.traits):
             binder.add_appearance(
                 category=p.category,
                 name=p.name,
@@ -262,6 +273,7 @@ async def build_binder(
     summarization_agent: Agent[models.AgentDeps, models.SummarizerResult]
     | None = None,
     progress: Callable[[models.ProgressUpdate], None] | None = None,
+    storage: StorageProvider | None = None,
 ) -> None:
     """Execute the LoreBinders build pipeline.
 
@@ -273,11 +285,15 @@ async def build_binder(
         reporting: The function to use for reporting.
         summarization_agent: Optional agent for summarization.
         progress: Optional callback for progress updates.
+        storage: Optional storage provider.
     """
+    if storage is None:
+        storage = FilesystemStorage()
+
     logger.info(
         f"Starting binder build for {config.book_title} by {config.author_name}"
     )
-    output_dir = ensure_workspace(config.author_name, config.book_title)
+    output_dir = storage.ensure_workspace(config.author_name, config.book_title)
     profiles_dir = output_dir / "profiles"
     profiles_dir.mkdir(exist_ok=True)
     extractions_dir = output_dir / "extractions"
@@ -290,7 +306,7 @@ async def build_binder(
 
     logger.debug("Starting extraction phase...")
     raw_extractions = await _extract_all_chapters(
-        book, extraction, extractions_dir, progress
+        book, extraction, extractions_dir, storage, progress
     )
 
     logger.debug("Starting early refinement...")
@@ -305,6 +321,7 @@ async def build_binder(
         book,
         profiles_dir,
         analysis,
+        storage,
         progress=progress,
     )
 
@@ -312,7 +329,7 @@ async def build_binder(
     binder = _aggregate_to_binder(profiles)
 
     logger.debug("Starting summarization phase...")
-    await summarize_binder(binder, summaries_dir, summarization_agent)
+    await summarize_binder(binder, summaries_dir, summarization_agent, storage)
 
     safe_title = sanitize_filename(config.book_title)
     output_file = output_dir / f"{safe_title}_story_bible.pdf"

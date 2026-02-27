@@ -10,6 +10,7 @@ from pydantic_ai.models.function import FunctionModel
 
 from lorebinders import models
 from lorebinders.agent import create_summarization_agent
+from lorebinders.storage.provider import FilesystemStorage
 from lorebinders.workflow import (
     _aggregate_to_binder,
     _analyze_all_entities,
@@ -121,7 +122,8 @@ async def test_extract_all_chapters_calls_extraction_per_chapter(
         extract_calls.append(ch.number)
         return {"Characters": [f"Char{ch.number}"]}
 
-    result = await _extract_all_chapters(book, fake_extract, tmp_path)
+    storage = FilesystemStorage()
+    result = await _extract_all_chapters(book, fake_extract, tmp_path, storage)
 
     assert sorted(extract_calls) == [1, 2]
     assert 1 in result
@@ -182,8 +184,9 @@ async def test_analyze_all_entities_processes_each_chapter(
                 )
         return profiles
 
+    storage = FilesystemStorage()
     profiles = await _analyze_all_entities(
-        entities, book, temp_workspace, fake_analyze_batch
+        entities, book, temp_workspace, fake_analyze_batch, storage
     )
 
     assert len(profiles) == 2

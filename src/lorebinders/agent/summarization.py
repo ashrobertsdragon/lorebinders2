@@ -10,13 +10,9 @@ from lorebinders.agent.factory import (
     create_summarization_agent,
     load_prompt_from_assets,
 )
-from lorebinders.models import AgentDeps, Binder, SummarizerResult
+from lorebinders.models import AgentDeps, Binder, EntityRecord, SummarizerResult
 from lorebinders.settings import get_settings
-from lorebinders.storage.summaries import (
-    load_summary,
-    save_summary,
-    summary_exists,
-)
+from lorebinders.storage.provider import FilesystemStorage, StorageProvider
 
 logger = logging.getLogger(__name__)
 
@@ -34,10 +30,9 @@ def _format_context(details: dict) -> str:
     for chap_num, appearance in details.items():
         lines.append(f"Chapter {chap_num}:")
         for trait, value in appearance.traits.items():
-            if isinstance(value, list):
-                val_str = ", ".join(value)
-            else:
-                val_str = str(value)
+            val_str = (
+                ", ".join(value) if isinstance(value, list) else str(value)
+            )
             lines.append(f"  - {trait}: {val_str}")
     return "\n".join(lines)
 
@@ -48,8 +43,9 @@ async def _summarize_entity(
     name: str,
     agent: Agent[AgentDeps, SummarizerResult],
     prompt: str,
+    storage: StorageProvider,
 ) -> str:
-    """Summarize an entity using the AI agent.
+    """Summarize an entity using the AI agent with abstracted storage.
 
     Args:
         summaries_dir: Directory for caching summaries.
@@ -57,13 +53,14 @@ async def _summarize_entity(
         name: The name of the entity.
         agent: The agent to use for summarization.
         prompt: The prompt to use for summarization.
+        storage: The storage provider for persistence.
 
     Returns:
         str: The summary text.
     """
-    if summary_exists(summaries_dir, category, name):
+    if storage.summary_exists(summaries_dir, category, name):
         logger.debug(f"Loading cached summary for {category}: {name}")
-        return load_summary(summaries_dir, category, name)
+        return storage.load_summary(summaries_dir, category, name)
 
     logger.info(f"Summarizing {category}: {name}")
     try:
@@ -73,7 +70,7 @@ async def _summarize_entity(
         )
         result = await agent.run(prompt, deps=deps)
         summary_text = result.output.summary
-        save_summary(summaries_dir, category, name, summary_text)
+        storage.save_summary(summaries_dir, category, name, summary_text)
         logger.debug(f"Summary saved for {category}: {name}")
         return summary_text
 
@@ -86,13 +83,17 @@ async def summarize_binder(
     binder: Binder,
     summaries_dir: Path,
     agent: Agent[AgentDeps, SummarizerResult] | None = None,
+    storage: StorageProvider | None = None,
 ) -> Binder:
     """Summarize entities in the binder asynchronously.
+
+    Includes throttling and abstracted storage.
 
     Args:
         binder: The refined binder model.
         summaries_dir: Directory for caching summaries.
         agent: The agent to use for summarization.
+        storage: Optional storage provider.
 
     Returns:
         Binder: The binder with added summaries.
@@ -102,8 +103,23 @@ async def summarize_binder(
     if agent is None:
         agent = create_summarization_agent()
 
+    if storage is None:
+        storage = FilesystemStorage()
+
+    semaphore = asyncio.Semaphore(10)
     tasks = []
     entity_refs = []
+
+    async def _throttled_summarize(e: "EntityRecord", p: str) -> str:
+        async with semaphore:
+            return await _summarize_entity(
+                summaries_dir,
+                e.category,
+                e.name,
+                agent,
+                p,
+                storage,
+            )
 
     for category_record in binder.categories.values():
         for entity in category_record.entities.values():
@@ -114,15 +130,7 @@ async def summarize_binder(
                     category=entity.category,
                     context_data=context_str,
                 )
-                tasks.append(
-                    _summarize_entity(
-                        summaries_dir,
-                        entity.category,
-                        entity.name,
-                        agent,
-                        prompt,
-                    )
-                )
+                tasks.append(_throttled_summarize(entity, prompt))
                 entity_refs.append(entity)
 
     if tasks:
