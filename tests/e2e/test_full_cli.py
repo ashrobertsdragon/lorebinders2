@@ -1,19 +1,24 @@
 import shutil
 from pathlib import Path
-from unittest.mock import patch
 
-from pydantic_ai import Agent
+from pydantic_ai.messages import ModelMessage, ModelResponse, TextPart
+from pydantic_ai.models.function import FunctionModel
 from typer.testing import CliRunner
 
-from lorebinders.cli.__cli__ import cli
+from lorebinders import app
+from lorebinders.agent import (
+    create_analysis_agent,
+    create_extraction_agent,
+    create_summarization_agent,
+)
+from lorebinders.cli.configuration import build_run_configuration
 from lorebinders.models import (
-    AgentDeps,
     AnalysisResult,
+    CategoryEntities,
     ExtractionResult,
     SummarizerResult,
     TraitValue,
 )
-from tests.utils import create_mock_model
 
 runner = CliRunner()
 
@@ -36,88 +41,91 @@ def test_e2e_ingestion_flow(
 
     cleanup_target = Path.cwd() / "work" / "Test_Author"
 
-    summarizer_result = SummarizerResult(
-        entity_name="Night", summary="A dark and stormy night."
-    )
-    summarizer_model, _ = create_mock_model(
-        summarizer_result,
-        model_name="test:mock_summarizer",
-    )
-    mock_summarizer_agent: Agent[AgentDeps, SummarizerResult] = Agent(
-        summarizer_model,
-        deps_type=AgentDeps,
-        output_type=SummarizerResult,
+    config = build_run_configuration(
+        source_file,
+        author_name="Test Author",
+        book_title="Project Genesis",
+        narrator_name=None,
+        is_1st_person=False,
+        traits=None,
+        categories=None,
     )
 
-    extractor_model, _ = create_mock_model(
-        {"results": [{"category": "Locations", "entities": ["Night"]}]},
-        model_name="test:mock_extractor",
-    )
-    mock_extractor_agent: Agent[AgentDeps, ExtractionResult] = Agent(
-        extractor_model,
-        deps_type=AgentDeps,
-        output_type=ExtractionResult,
-    )
+    def mock_extract(
+        messages: list[ModelMessage], info: object
+    ) -> ModelResponse:
+        return ModelResponse(
+            parts=[
+                TextPart(
+                    content=ExtractionResult(
+                        results=[
+                            CategoryEntities(
+                                category="Locations", entities=["Night"]
+                            )
+                        ]
+                    ).model_dump_json()
+                )
+            ]
+        )
 
-    analysis_result = AnalysisResult(
-        entity_name="Night",
-        category="Locations",
-        traits=[
-            TraitValue(
-                trait="Key Features",
-                value="Dark and stormy",
-                evidence="It was a dark and stormy night.",
-            ),
-            TraitValue(
-                trait="Relative Location",
-                value="Unknown",
-                evidence="It was a dark and stormy night.",
-            ),
-            TraitValue(
-                trait="Character Familiarity",
-                value="Unknown",
-                evidence="It was a dark and stormy night.",
-            ),
-        ],
-    )
-    analyzer_model, _ = create_mock_model(
-        {"response": [analysis_result]},
-        model_name="test:mock_analyzer",
-    )
-    mock_analyzer_agent: Agent[AgentDeps, list[AnalysisResult]] = Agent(
-        analyzer_model,
-        deps_type=AgentDeps,
-        output_type=list[AnalysisResult],
-    )
-
-    try:
-        with (
-            patch(
-                "lorebinders.app.create_extraction_agent"
-            ) as mock_create_extraction_agent,
-            patch(
-                "lorebinders.app.create_analysis_agent"
-            ) as mock_create_analysis_agent,
-            patch(
-                "lorebinders.agent.summarization.create_summarization_agent"
-            ) as mock_create_summarization_agent,
-        ):
-            mock_create_extraction_agent.return_value = mock_extractor_agent
-            mock_create_analysis_agent.return_value = mock_analyzer_agent
-            mock_create_summarization_agent.return_value = mock_summarizer_agent
-            result = runner.invoke(
-                cli,
-                [
-                    str(source_file),
-                    "--author",
-                    "Test Author",
-                    "--title",
-                    "Project Genesis",
+    def mock_analyze(
+        messages: list[ModelMessage], info: object
+    ) -> ModelResponse:
+        results = [
+            AnalysisResult(
+                entity_name="Night",
+                category="Locations",
+                traits=[
+                    TraitValue(
+                        trait="Key Features", value="Dark", evidence="..."
+                    )
                 ],
             )
+        ]
+        import json
 
-        assert result.exit_code == 0
+        return ModelResponse(
+            parts=[
+                TextPart(
+                    content=json.dumps(
+                        {"response": [i.model_dump() for i in results]}
+                    )
+                )
+            ]
+        )
 
-    finally:
-        if cleanup_target.exists():
-            shutil.rmtree(cleanup_target)
+    def mock_summarize(
+        messages: list[ModelMessage], info: object
+    ) -> ModelResponse:
+        return ModelResponse(
+            parts=[
+                TextPart(
+                    content=SummarizerResult(
+                        entity_name="Night", summary="Summary"
+                    ).model_dump_json()
+                )
+            ]
+        )
+
+    ext_agent = create_extraction_agent()
+    ana_agent = create_analysis_agent()
+    sum_agent = create_summarization_agent()
+
+    with (
+        ext_agent.override(model=FunctionModel(mock_extract)),
+        ana_agent.override(model=FunctionModel(mock_analyze)),
+        sum_agent.override(model=FunctionModel(mock_summarize)),
+    ):
+        try:
+            output_path = app.run(
+                config,
+                extraction_agent=ext_agent,
+                analysis_agent=ana_agent,
+                summarization_agent=sum_agent,
+            )
+
+            assert output_path.exists()
+
+        finally:
+            if cleanup_target.exists():
+                shutil.rmtree(cleanup_target)

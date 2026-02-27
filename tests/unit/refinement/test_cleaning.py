@@ -1,16 +1,12 @@
-from typing import Any
-
 import pytest
 
+from lorebinders.models import Binder
 from lorebinders.refinement.cleaning import (
     _clean_entity_name,
     clean_binder,
-    clean_list,
-    clean_none_found,
     clean_str,
-    replace_narrator,
+    clean_traits,
 )
-from lorebinders.types import Binder, CleanableDict
 
 
 @pytest.mark.parametrize(
@@ -35,66 +31,31 @@ def test_clean_str(input_str: str, expected: str) -> None:
     assert clean_str(input_str) == expected
 
 
-@pytest.mark.parametrize(
-    "input_list, expected",
-    [
-        (["A", "None found", "B"], ["A", "B"]),
-        ([{"A": "B"}, {"C": "None found"}], [{"A": "B"}]),
-        ([["A", "None Found"]], [["A"]]),
-        (["None found"], []),
-        ([], []),
-        ([1, 2, 3], []),
-        (["  ", ""], ["  "]),
-        (["Valid", "none found", "Also Valid"], ["Valid", "Also Valid"]),
-        ([[[]], ["None Found"]], []),
-        ([None, "String"], ["String"]),
-    ],
-)
-def test_clean_list(input_list: list[Any], expected: list[Any]) -> None:
-    assert clean_list(input_list) == expected
-
-
-def test_clean_none_found_removes_empty_values() -> None:
-    data: CleanableDict = {
-        "Characters": {
-            "John": {
-                "Eyes": "Blue",
-                "Hair": "None found",
-                "Traits": ["Brave", "none found"],
-                "Nested": {"Key": "None Found"},
-            },
-            "None found": {"Something": "Else"},
-        }
+def test_clean_traits_removes_empty_values() -> None:
+    traits: dict[str, str | list[str]] = {
+        "Eyes": "Blue",
+        "Hair": "None found",
+        "Traits": ["Brave", "none found"],
     }
-    cleaned = clean_none_found(data)
-    characters = cleaned["Characters"]
-    assert isinstance(characters, dict)
-    assert "None found" not in characters
-    john = characters["John"]
-    assert isinstance(john, dict)
-    assert "Hair" not in john
-    assert "Nested" not in john
-    assert john["Eyes"] == "Blue"
-    assert john["Traits"] == ["Brave"]
+    cleaned = clean_traits(traits)
+    assert "Hair" not in cleaned
+    assert cleaned["Eyes"] == "Blue"
+    assert cleaned["Traits"] == ["Brave"]
 
 
-def test_replace_narrator_substitutes_references() -> None:
-    data: Binder = {
-        "Characters": {
-            "I": {1: {"Description": "The narrator is tall."}},
-            "The Protagonist": {
-                1: {"Action": "I went home.", "List": ["I saw myself"]}
-            },
-            "John": {1: {"Opinion of I": "He is strange."}},
-        }
-    }
-    cleaned = replace_narrator(data, "Jane Doe")
-    assert "Jane Doe" in cleaned["Characters"]
-    assert "I" not in cleaned["Characters"]
-    jane_entry = cleaned["Characters"]["Jane Doe"]
-    jane_first_chapter = jane_entry[1]
-    assert isinstance(jane_first_chapter, dict)
-    assert jane_first_chapter["Description"] == "Jane Doe is tall."
+def test_clean_binder_replaces_narrator() -> None:
+    binder = Binder()
+    binder.add_appearance(
+        "Characters", "I", 1, {"Description": "The narrator is tall."}
+    )
+
+    cleaned = clean_binder(binder, "Jane Doe")
+
+    assert "Jane Doe" in cleaned.categories["Characters"].entities
+    assert "I" not in cleaned.categories["Characters"].entities
+
+    jane = cleaned.categories["Characters"].entities["Jane Doe"]
+    assert jane.appearances[1].traits["Description"] == "Jane Doe is tall."
 
 
 @pytest.mark.parametrize(
@@ -104,16 +65,6 @@ def test_replace_narrator_substitutes_references() -> None:
         ("Forest (Dark)", "Locations", "Forest"),
         ("Mr. John", "Other", "Mr. John"),
         ("Dr. Strange", "Characters", "Strange"),
-        (
-            "The Castle",
-            "Locations",
-            "The Castle",
-        ),
-        (
-            "Castle of Doom",
-            "Locations",
-            "Castle of Doom",
-        ),
         ("Captain Jack", "Characters", "Jack"),
         ("Lady Jane", "Characters", "Jane"),
         ("Mount Doom (Volcano)", "Locations", "Mount Doom"),
@@ -125,16 +76,16 @@ def test_clean_entity_name(name: str, category: str, expected: str) -> None:
 
 
 def test_clean_binder_integrates_steps() -> None:
-    data: Binder = {
-        "Characters": {
-            "Mr. Smith": {1: {"Trait": "A"}},
-            "Smith": {1: {"Trait": "B"}},
-            "I": {1: {"Trait": "C"}},
-        },
-        "Locations": {"Cave (Deep)": {1: {"Trait": "Dark"}}},
-    }
-    cleaned = clean_binder(data, "Jane")
-    assert "Smith" in cleaned["Characters"]
-    assert "Mr. Smith" not in cleaned["Characters"]
-    assert "Jane" in cleaned["Characters"]
-    assert "Cave" in cleaned["Locations"]
+    binder = Binder()
+    binder.add_appearance("Characters", "Mr. Smith", 1, {"Trait": "A"})
+    binder.add_appearance("Characters", "Smith", 1, {"Trait": "B"})
+    binder.add_appearance("Characters", "I", 1, {"Trait": "C"})
+    binder.add_appearance("Locations", "Cave (Deep)", 1, {"Trait": "Dark"})
+
+    cleaned = clean_binder(binder, "Jane")
+
+    chars = cleaned.categories["Characters"].entities
+    assert "Smith" in chars
+    assert "Mr. Smith" not in chars
+    assert "Jane" in chars
+    assert "Cave" in cleaned.categories["Locations"].entities

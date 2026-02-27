@@ -1,6 +1,8 @@
 """Text normalization utilities shared across refinement modules."""
 
-from typing import Any
+from typing import cast
+
+from lorebinders.models import CleanableValue
 
 TITLES: frozenset[str] = frozenset(
     {
@@ -147,12 +149,12 @@ def to_singular(plural: str) -> str:
     return plural
 
 
-def merge_values(v1: Any, v2: Any) -> Any:
+def merge_values(v1: object, v2: object) -> CleanableValue:
     """Merge two values when keys collide during entity resolution.
 
     Args:
-        v1: The first value.
-        v2: The second value.
+        v1: The first value to merge.
+        v2: The second value to merge.
 
     Returns:
         The merged value.
@@ -160,17 +162,14 @@ def merge_values(v1: Any, v2: Any) -> Any:
     if isinstance(v1, dict) and isinstance(v2, dict):
         merged = v1.copy()
         for k, v in v2.items():
-            if k in merged:
-                merged[k] = merge_values(merged[k], v)
-            else:
-                merged[k] = v
-        return merged
+            merged[k] = merge_values(merged[k], v) if k in merged else v
+        return cast(CleanableValue, merged)
     if isinstance(v1, list) and isinstance(v2, list):
-        return list(set(v1 + v2))
+        return cast(CleanableValue, list(set(v1 + v2)))
     if isinstance(v1, list):
-        return list(set(v1 + [v2]))
+        return cast(CleanableValue, list(set(v1 + [v2])))
     if isinstance(v2, list):
-        return list(set([v1] + v2))
-    if v1 == v2:
-        return v1
-    return [v1, v2]
+        return cast(CleanableValue, list(set([v1] + v2)))
+    return (
+        cast(CleanableValue, v1) if v1 == v2 else cast(CleanableValue, [v1, v2])
+    )

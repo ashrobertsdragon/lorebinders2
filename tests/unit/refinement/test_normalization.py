@@ -1,5 +1,8 @@
+from typing import cast
+
 import pytest
 
+from lorebinders.models import CleanableValue
 from lorebinders.refinement.normalization import (
     merge_values,
     remove_titles,
@@ -68,17 +71,17 @@ def test_to_singular(plural: str, expected: str) -> None:
 def test_merge_values() -> None:
     v1 = {"a": 1, "b": [2]}
     v2 = {"b": [3], "c": 4}
-    merged_dict = merge_values(v1, v2)
+    merged_dict = cast(dict[str, CleanableValue], merge_values(v1, v2))
     assert merged_dict["a"] == 1
-    assert 2 in merged_dict["b"]
-    assert 3 in merged_dict["b"]
+    assert 2 in cast(list[CleanableValue], merged_dict["b"])
+    assert 3 in cast(list[CleanableValue], merged_dict["b"])
     assert merged_dict["c"] == 4
 
     l1 = [1, 2]
     l2 = [2, 3]
-    merged_list = merge_values(l1, l2)
+    merged_list = cast(list[CleanableValue], merge_values(l1, l2))
     assert set(merged_list) == {1, 2, 3}
-    assert set(merge_values(1, [2])) == {1, 2}
-    assert set(merge_values([1], 2)) == {1, 2}
+    assert set(cast(list[CleanableValue], merge_values(1, [2]))) == {1, 2}
+    assert set(cast(list[CleanableValue], merge_values([1], 2))) == {1, 2}
     assert merge_values(1, 1) == 1
-    assert set(merge_values(1, 2)) == {1, 2}
+    assert set(cast(list[CleanableValue], merge_values(1, 2))) == {1, 2}

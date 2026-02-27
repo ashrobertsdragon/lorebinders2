@@ -1,6 +1,7 @@
 import json
 from pathlib import Path
 
+import pytest
 from pydantic_ai.messages import (
     ModelMessage,
     ModelRequest,
@@ -17,9 +18,8 @@ from lorebinders.agent import (
     run_agent,
 )
 from lorebinders.agent.summarization import summarize_binder
-from lorebinders.models import AgentDeps, SummarizerResult
+from lorebinders.models import AgentDeps, Binder, SummarizerResult
 from lorebinders.settings import Settings
-from lorebinders.types import Binder
 
 
 def test_summarization_agent_run_sync_and_prompt() -> None:
@@ -82,7 +82,8 @@ def test_summarization_agent_run_sync_and_prompt() -> None:
     assert "He is a wizard" in user_prompt_content
 
 
-def test_entity_summarizer_orchestration(tmp_path: Path) -> None:
+@pytest.mark.anyio
+async def test_entity_summarizer_orchestration(tmp_path: Path) -> None:
     expected_result_dict = {
         "entity_name": "Frodo",
         "summary": "A brave hobbit.",
@@ -97,18 +98,20 @@ def test_entity_summarizer_orchestration(tmp_path: Path) -> None:
 
     agent = create_summarization_agent()
     with agent.override(model=FunctionModel(mock_model_call)):
-        binder: Binder = {
-            "Characters": {
-                "Frodo": {1: {"Traits": ["Brave", "Short"], "Item": "Ring"}}
-            }
-        }
-
-        result_binder = summarize_binder(binder, tmp_path, agent=agent)
-
-        assert "Characters" in result_binder
-        assert "Frodo" in result_binder["Characters"]
-        assert "Summary" in result_binder["Characters"]["Frodo"]
-        assert (
-            result_binder["Characters"]["Frodo"]["Summary"] == "A brave hobbit."
+        binder = Binder()
+        binder.add_appearance(
+            "Characters",
+            "Frodo",
+            1,
+            {"Traits": ["Brave", "Short"], "Item": "Ring"},
         )
-        assert "Traits" in result_binder["Characters"]["Frodo"][1]
+
+        result_binder = await summarize_binder(binder, tmp_path, agent=agent)
+
+        assert "Characters" in result_binder.categories
+        frodo = result_binder.categories["Characters"].entities["Frodo"]
+        assert frodo.summary == "A brave hobbit."
+        assert frodo.appearances[1].traits == {
+            "Traits": ["Brave", "Short"],
+            "Item": "Ring",
+        }

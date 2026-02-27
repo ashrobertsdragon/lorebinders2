@@ -1,12 +1,13 @@
+import asyncio
 import logging
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from pathlib import Path
 
 from pydantic_ai import Agent
 
-from lorebinders import models, types
+from lorebinders import models
 from lorebinders.agent.summarization import summarize_binder
-from lorebinders.refinement import refine_binder
+from lorebinders.refinement.cleaning import clean_traits
 from lorebinders.refinement.sorting import sort_extractions
 from lorebinders.storage.extractions import (
     extraction_exists,
@@ -23,76 +24,110 @@ from lorebinders.storage.workspace import ensure_workspace, sanitize_filename
 logger = logging.getLogger(__name__)
 
 
-def _extract_all_chapters(
-    book: models.Book,
-    extraction_fn: Callable[[models.Chapter], dict[str, list[str]]],
+async def _extract_chapter(
+    chapter: models.Chapter,
+    extraction_fn: Callable[[models.Chapter], Awaitable[dict[str, list[str]]]],
     extractions_dir: Path,
+    idx: int,
+    total: int,
     progress: Callable[[models.ProgressUpdate], None] | None = None,
-) -> dict[int, dict[str, list[str]]]:
-    """Extract entities from all chapters.
+) -> tuple[int, dict[str, list[str]]]:
+    """Extract entities from a single chapter.
 
     Args:
-        book: The book containing chapters.
-        extraction_fn: Function to extract entities from a chapter.
-        extractions_dir: Directory for caching extraction results.
+        chapter: The chapter to extract from.
+        extraction_fn: The function to use for extraction.
+        extractions_dir: The directory to save extractions to.
+        idx: The current chapter index.
+        total: The total number of chapters.
         progress: Optional callback for progress updates.
 
     Returns:
-        Map of chapter number to category to list of entity names.
+        A tuple of (chapter_number, extraction_data).
     """
-    raw_extractions: dict[int, dict[str, list[str]]] = {}
+    if progress:
+        progress(
+            models.ProgressUpdate(
+                stage="extraction",
+                current=idx,
+                total=total,
+                message=f"Extracting chapter {chapter.number}: {chapter.title}",
+            )
+        )
+
+    if extraction_exists(extractions_dir, chapter.number):
+        logger.info(f"Loading cached extraction for chapter {chapter.number}")
+        result = load_extraction(extractions_dir, chapter.number)
+    else:
+        result = await extraction_fn(chapter)
+        save_extraction(extractions_dir, chapter.number, result)
+
+    return chapter.number, result
+
+
+async def _extract_all_chapters(
+    book: models.Book,
+    extraction_fn: Callable[[models.Chapter], Awaitable[dict[str, list[str]]]],
+    extractions_dir: Path,
+    progress: Callable[[models.ProgressUpdate], None] | None = None,
+) -> dict[int, dict[str, list[str]]]:
+    """Extract entities from all chapters in parallel.
+
+    Args:
+        book: The book to extract from.
+        extraction_fn: The function to use for extraction.
+        extractions_dir: The directory to save extractions to.
+        progress: Optional callback for progress updates.
+
+    Returns:
+        A dictionary mapping chapter numbers to extraction data.
+    """
     total_chapters = len(book.chapters)
-
     logger.info(f"Extracting entities from {total_chapters} chapters")
-    for idx, chapter in enumerate(book.chapters, 1):
-        if progress:
-            progress(
-                models.ProgressUpdate(
-                    stage="extraction",
-                    current=idx,
-                    total=total_chapters,
-                    message=(
-                        f"Extracting chapter {chapter.number}: {chapter.title}"
-                    ),
-                )
-            )
 
-        if extraction_exists(extractions_dir, chapter.number):
-            logger.info(
-                f"Loading cached extraction for chapter {chapter.number}"
-            )
-            raw_extractions[chapter.number] = load_extraction(
-                extractions_dir, chapter.number
-            )
-        else:
-            result = extraction_fn(chapter)
-            save_extraction(extractions_dir, chapter.number, result)
-            raw_extractions[chapter.number] = result
+    tasks = [
+        _extract_chapter(
+            chapter,
+            extraction_fn,
+            extractions_dir,
+            idx,
+            total_chapters,
+            progress,
+        )
+        for idx, chapter in enumerate(book.chapters, 1)
+    ]
 
-    return raw_extractions
+    results = await asyncio.gather(*tasks)
+    return dict(results)
 
 
-def _analyze_batch(
-    target_categories: list[types.CategoryTarget],
+async def _analyze_batch(
+    target_categories: list[models.CategoryTarget],
     chapter: models.Chapter,
     profiles_dir: Path,
     analysis_fn: Callable[
-        [list[types.CategoryTarget], models.Chapter],
-        list[models.EntityProfile],
+        [list[models.CategoryTarget], models.Chapter],
+        Awaitable[list[models.EntityProfile]],
     ],
 ) -> list[models.EntityProfile]:
-    """Analyze a batch of entities, skipping already analyzed ones.
+    """Analyze a batch of entities synchronously for caching.
+
+    Args:
+        target_categories: The categories and entities to analyze.
+        chapter: The chapter context for analysis.
+        profiles_dir: The directory to save profiles to.
+        analysis_fn: The function to use for analysis.
 
     Returns:
-        List of EntityProfile objects (loaded or newly analyzed).
+        A list of analyzed entity profiles.
     """
     profiles: list[models.EntityProfile] = []
-    to_analyze: list[types.CategoryTarget] = []
+    to_analyze: list[models.CategoryTarget] = []
 
     for cat_target in target_categories:
-        category = cat_target["name"]
+        category = cat_target.name
         entities_to_run = []
-        for name in cat_target["entities"]:
+        for name in cat_target.entities:
             if profile_exists(profiles_dir, chapter.number, category, name):
                 profiles.append(
                     load_profile(profiles_dir, chapter.number, category, name)
@@ -102,13 +137,13 @@ def _analyze_batch(
 
         if entities_to_run:
             to_analyze.append(
-                types.CategoryTarget(name=category, entities=entities_to_run)
+                models.CategoryTarget(name=category, entities=entities_to_run)
             )
 
     if not to_analyze:
         return profiles
 
-    analyzed_profiles = analysis_fn(to_analyze, chapter)
+    analyzed_profiles = await analysis_fn(to_analyze, chapter)
     for p in analyzed_profiles:
         save_profile(profiles_dir, chapter.number, p)
         profiles.append(p)
@@ -116,31 +151,30 @@ def _analyze_batch(
     return profiles
 
 
-def _analyze_all_entities(
-    entities: dict[str, dict[str, list[int]]],
+async def _analyze_all_entities(
+    entities: models.SortedExtractions,
     book: models.Book,
     profiles_dir: Path,
     analysis_fn: Callable[
-        [list[types.CategoryTarget], models.Chapter],
-        list[models.EntityProfile],
+        [list[models.CategoryTarget], models.Chapter],
+        Awaitable[list[models.EntityProfile]],
     ],
     progress: Callable[[models.ProgressUpdate], None] | None = None,
 ) -> list[models.EntityProfile]:
-    """Analyze all entities across all their chapter appearances.
+    """Analyze all entities sequentially across all chapter appearances.
 
     Args:
-        entities: Map of category to entity name to chapter numbers.
-        book: The book with chapters.
-        profiles_dir: Directory for persistence.
-        analysis_fn: Function to analyze a batch of entities.
+        entities: The sorted extractions to analyze.
+        book: The book context.
+        profiles_dir: The directory to save profiles to.
+        analysis_fn: The function to use for analysis.
         progress: Optional callback for progress updates.
 
     Returns:
-        List of all entity profiles.
+        A list of all analyzed entity profiles.
     """
     chapter_map = {ch.number: ch for ch in book.chapters}
-
-    chapter_entities: types.CategoryChapterData = {}
+    chapter_entities: dict[int, dict[str, list[str]]] = {}
 
     for category, entity_chapters in entities.items():
         for entity_name, chapters in entity_chapters.items():
@@ -161,14 +195,14 @@ def _analyze_all_entities(
 
         for category, names in cat_map.items():
             batch_targets = [
-                types.CategoryTarget(name=category, entities=names)
+                models.CategoryTarget(name=category, entities=names)
             ]
             batch_tasks.append((batch_targets, chapter))
 
     total_batches = len(batch_tasks)
     logger.info(
-        f"Analyzing {total_batches} entity batches across "
-        f"{len(chapter_entities)} chapters"
+        f"Analyzing {total_batches} entity batches "
+        f"across {len(chapter_entities)} chapters"
     )
 
     for idx, (batch, chapter) in enumerate(batch_tasks, 1):
@@ -184,7 +218,7 @@ def _analyze_all_entities(
                     ),
                 )
             )
-        batch_profiles = _analyze_batch(
+        batch_profiles = await _analyze_batch(
             batch, chapter, profiles_dir, analysis_fn
         )
         profiles.extend(batch_profiles)
@@ -192,167 +226,39 @@ def _analyze_all_entities(
     return profiles
 
 
-def _aggregate_profiles_to_binder(
+def _aggregate_to_binder(
     profiles: list[models.EntityProfile],
-) -> types.Binder:
-    """Convert list of profiles to binder dict format.
+) -> models.Binder:
+    """Aggregate profiles into the Binder model, cleaning traits.
+
+    Args:
+        profiles: The list of entity profiles to aggregate.
 
     Returns:
-        Binder dict: {Category: {Name: {ChapterNum: Traits}}}
+        A Binder model containing all aggregated entities.
     """
-    binder: types.Binder = {}
-
+    binder = models.Binder()
     for p in profiles:
-        if p.category not in binder:
-            binder[p.category] = {}
-        if p.name not in binder[p.category]:
-            binder[p.category][p.name] = {}
-        binder[p.category][p.name][p.chapter_number] = p.traits
-
+        cleaned = clean_traits(p.traits)
+        if cleaned:
+            binder.add_appearance(
+                category=p.category,
+                name=p.name,
+                chapter=p.chapter_number,
+                traits=cleaned,
+            )
     return binder
 
 
-def _binder_to_profiles(
-    binder: types.Binder,
-) -> list[models.EntityProfile]:
-    """Convert binder dict format back to list of profiles.
-
-    Returns:
-        List of EntityProfile objects.
-    """
-    profiles = []
-    for category, entities in binder.items():
-        if not isinstance(entities, dict):
-            continue
-        for name, data in entities.items():
-            if not isinstance(data, dict):
-                continue
-            for chapter, traits in data.items():
-                try:
-                    chap_num = int(chapter)
-                except (ValueError, TypeError):
-                    continue
-                if isinstance(traits, dict):
-                    profiles.append(
-                        models.EntityProfile(
-                            name=name,
-                            category=category,
-                            chapter_number=chap_num,
-                            traits=traits,
-                            confidence_score=1.0,
-                        )
-                    )
-    return profiles
-
-
-def _get_summarizable_binder(
-    binder: types.Binder, threshold: int = 3
-) -> types.Binder:
-    """Filter binder for entities meeting chapter threshold.
-
-    Args:
-        binder: The source binder to filter.
-        threshold: Minimum number of chapters required.
-
-    Returns:
-        A new binder containing only qualifying entities.
-    """
-    result: types.Binder = {}
-    for category, entities in binder.items():
-        if not isinstance(entities, dict):
-            continue
-
-        valid_entities = _filter_category_entities(entities, threshold)
-        if valid_entities:
-            result[category] = valid_entities
-    return result
-
-
-def _filter_category_entities(
-    entities: types.EntityData, threshold: int
-) -> types.EntityData:
-    """Filter entities within a category by chapter count.
-
-    Args:
-        entities: The entity dictionary for a category.
-        threshold: Minimum chapter count.
-
-    Returns:
-        Dictionary of qualifying entities.
-    """
-    filtered: types.EntityData = {}
-    for name, data in entities.items():
-        if not isinstance(data, dict):
-            continue
-        if len(data) >= threshold:
-            filtered[name] = data
-    return filtered
-
-
-def _merge_summary_results(target: types.Binder, source: types.Binder) -> None:
-    """Merge summary fields from source binder into target binder.
-
-    Args:
-        target: The destination binder to update.
-        source: The binder containing generated summaries.
-    """
-    for category, entities in source.items():
-        if not isinstance(entities, dict):
-            continue
-        _merge_category_summaries(target, category, entities)
-
-
-def _merge_category_summaries(
-    target: types.Binder, category: str, source_entities: types.EntityData
-) -> None:
-    """Merge summaries for a specific category.
-
-    Args:
-        target: The destination binder.
-        category: The category key.
-        source_entities: The source entities with summaries.
-    """
-    if category not in target:
-        return
-
-    target_entities = target[category]
-    if not isinstance(target_entities, dict):
-        return
-
-    for name, data in source_entities.items():
-        if not isinstance(data, dict):
-            continue
-        if "Summary" in data:
-            _update_entity_summary(target_entities, name, data["Summary"])
-
-
-def _update_entity_summary(
-    entities: types.EntityData, name: str, summary: str | types.TraitDict
-) -> None:
-    """Update a single entity's summary if it exists in target.
-
-    Args:
-        entities: The target entity dictionary.
-        name: The entity name.
-        summary: The summary text to set.
-    """
-    if name not in entities:
-        return
-
-    entity_data = entities[name]
-    if isinstance(entity_data, dict):
-        entity_data["Summary"] = summary
-
-
-def build_binder(
+async def build_binder(
     config: models.RunConfiguration,
     ingestion: Callable[[Path, Path], models.Book],
-    extraction: Callable[[models.Chapter], dict[str, list[str]]],
+    extraction: Callable[[models.Chapter], Awaitable[dict[str, list[str]]]],
     analysis: Callable[
-        [list[types.CategoryTarget], models.Chapter],
-        list[models.EntityProfile],
+        [list[models.CategoryTarget], models.Chapter],
+        Awaitable[list[models.EntityProfile]],
     ],
-    reporting: Callable[[types.Binder, Path], None],
+    reporting: Callable[[models.Binder, Path], None],
     summarization_agent: Agent[models.AgentDeps, models.SummarizerResult]
     | None = None,
     progress: Callable[[models.ProgressUpdate], None] | None = None,
@@ -360,13 +266,13 @@ def build_binder(
     """Execute the LoreBinders build pipeline.
 
     Args:
-        config: Configuration for the run.
-        ingestion: Function to ingest the book.
-        extraction: Function to extract entities.
-        analysis: Function to analyze entities.
-        reporting: Function to generate reports.
-        summarization_agent: Agent for summarization.
-        progress: Progress callback.
+        config: The run configuration.
+        ingestion: The function to use for ingestion.
+        extraction: The function to use for extraction.
+        analysis: The function to use for analysis.
+        reporting: The function to use for reporting.
+        summarization_agent: Optional agent for summarization.
+        progress: Optional callback for progress updates.
     """
     logger.info(
         f"Starting binder build for {config.book_title} by {config.author_name}"
@@ -381,52 +287,35 @@ def build_binder(
 
     logger.debug("Ingesting book...")
     book = ingestion(config.book_path, output_dir)
-    logger.debug(f"Book ingested. found {len(book.chapters)} chapters.")
 
     logger.debug("Starting extraction phase...")
-    raw_extractions = _extract_all_chapters(
+    raw_extractions = await _extract_all_chapters(
         book, extraction, extractions_dir, progress
     )
-    logger.debug("Extraction phase complete.")
 
+    logger.debug("Starting early refinement...")
     narrator_name = (
         config.narrator_config.name if config.narrator_config else None
     )
-
-    logger.debug("Sorting extractions...")
-    entities = sort_extractions(raw_extractions, narrator_name)
-    logger.debug("Extractions sorted.")
+    sorted_extractions = sort_extractions(raw_extractions, narrator_name)
 
     logger.debug("Starting analysis phase...")
-    profiles = _analyze_all_entities(
-        entities,
+    profiles = await _analyze_all_entities(
+        sorted_extractions,
         book,
         profiles_dir,
         analysis,
         progress=progress,
     )
-    logger.debug("Analysis phase complete.")
 
-    logger.debug("Aggregating profiles...")
-    raw_binder = _aggregate_profiles_to_binder(profiles)
-
-    logger.debug("Refining binder...")
-    refined_binder = refine_binder(raw_binder, narrator_name)
-
-    logger.debug("Filtering for summarization...")
-    summarizable_binder = _get_summarizable_binder(refined_binder, 3)
+    logger.debug("Aggregating profiles and cleaning traits...")
+    binder = _aggregate_to_binder(profiles)
 
     logger.debug("Starting summarization phase...")
-    partial_summarized_binder = summarize_binder(
-        summarizable_binder, summaries_dir, summarization_agent
-    )
-    logger.debug("Summarization phase complete.")
-
-    logger.debug("Merging summaries...")
-    _merge_summary_results(refined_binder, partial_summarized_binder)
+    await summarize_binder(binder, summaries_dir, summarization_agent)
 
     safe_title = sanitize_filename(config.book_title)
     output_file = output_dir / f"{safe_title}_story_bible.pdf"
     logger.debug(f"Generating report to {output_file}...")
-    reporting(refined_binder, output_file)
+    reporting(binder, output_file)
     logger.debug("Report generation complete.")

@@ -11,46 +11,8 @@ from reportlab.platypus import (
     Spacer,
 )
 
+from lorebinders.models import Binder, EntityRecord
 from lorebinders.reporting.styles import get_document_styles
-from lorebinders.types import Binder, EntityEntry
-
-
-def _process_chapter_traits(
-    chapter_num: int,
-    traits: dict[str, str | list[str]],
-    aggregated_traits: dict[str, dict[int, str | list[str]]],
-) -> None:
-    """Process traits for a single chapter.
-
-    Args:
-        chapter_num: The chapter number.
-        traits: The traits dictionary for the chapter.
-        aggregated_traits: The mutable aggregation dictionary.
-    """
-    for trait_name, trait_val in traits.items():
-        if trait_name not in aggregated_traits:
-            aggregated_traits[trait_name] = {}
-        aggregated_traits[trait_name][chapter_num] = trait_val
-
-
-def _aggregate_traits(
-    entity_data: EntityEntry,
-) -> dict[str, dict[int, str | list[str]]]:
-    """Aggregate traits from chapter-based entity key-values.
-
-    Args:
-        entity_data: The raw entity data containing chapter keys and summary.
-
-    Returns:
-        Structured trait map: {trait_name: {chapter_num: value}}
-    """
-    aggregated_traits: dict[str, dict[int, str | list[str]]] = {}
-
-    for key, value in entity_data.items():
-        if isinstance(key, int) and isinstance(value, dict):
-            _process_chapter_traits(key, value, aggregated_traits)
-
-    return aggregated_traits
 
 
 def _create_occurrence_item(
@@ -61,10 +23,10 @@ def _create_occurrence_item(
     Args:
         chap_num: The chapter number.
         val: The trait value.
-        styles: The stylesheet.
+        styles: Document styles.
 
     Returns:
-        A formatted ListItem.
+        A ListItem containing the formatted occurrence.
     """
     val_str = ", ".join(val) if isinstance(val, list) else str(val)
     text = f"Chapter {chap_num}: {val_str}"
@@ -75,16 +37,14 @@ def _create_occurrence_item(
     )
 
 
-def _add_trait_occurrences(
-    story: list, occurrences: dict[int, str | list[str]], styles: dict
+def _add_trait_section(
+    story: list,
+    trait_name: str,
+    occurrences: dict[int, str | list[str]],
+    styles: dict,
 ) -> None:
-    """Add individual trait occurrences to the story.
-
-    Args:
-        story: The list of flowables.
-        occurrences: Map of chapter number to trait value.
-        styles: The stylesheet.
-    """
+    """Add a single trait and its occurrences to the report."""
+    story.append(Paragraph(f"<b>{trait_name}</b>", styles["Normal"]))
     list_items = []
     for chap_num in sorted(occurrences.keys()):
         val = occurrences[chap_num]
@@ -92,92 +52,40 @@ def _add_trait_occurrences(
         list_items.append(item)
 
     story.append(ListFlowable(list_items, bulletType="bullet", start="circle"))
-
-
-def _add_traits_section(
-    story: list,
-    aggregated_traits: dict[str, dict[int, str | list[str]]],
-    styles: dict,
-) -> None:
-    """Add the traits section to the story.
-
-    Args:
-        story: The list of flowables.
-        aggregated_traits: The aggregated traits data.
-        styles: The stylesheet.
-    """
-    story.append(Paragraph("<b>Traits:</b>", styles["Normal"]))
     story.append(Spacer(1, 6))
-
-    for trait_name in sorted(aggregated_traits.keys()):
-        story.append(Paragraph(f"<b>{trait_name}</b>", styles["Normal"]))
-        trait_occurrences = aggregated_traits[trait_name]
-        _add_trait_occurrences(story, trait_occurrences, styles)
-        story.append(Spacer(1, 6))
 
 
 def _process_entity(
     story: list,
-    entity_name: str,
-    entity_data: EntityEntry,
+    entity: EntityRecord,
     styles: dict,
 ) -> None:
-    """Process a single entity and add it to the story.
+    """Process a single entity and add it to the story."""
+    story.append(Paragraph(entity.name, styles["Heading2"]))
 
-    Args:
-        story: The list of flowables.
-        entity_name: The name of the entity.
-        entity_data: The entity's data.
-        styles: The stylesheet.
-    """
-    story.append(Paragraph(entity_name, styles["Heading2"]))
-
-    summary_text = ""
-    if "Summary" in entity_data:
-        summary_val = entity_data["Summary"]
-        if isinstance(summary_val, str):
-            summary_text = summary_val
-
-    if summary_text:
-        story.append(Paragraph(summary_text, styles["Normal"]))
+    if entity.summary:
+        story.append(Paragraph(entity.summary, styles["Normal"]))
         story.append(Spacer(1, 12))
 
-    aggregated_traits = _aggregate_traits(entity_data)
+    if entity.appearances:
+        story.append(Paragraph("<b>Traits:</b>", styles["Normal"]))
+        story.append(Spacer(1, 6))
 
-    if aggregated_traits:
-        _add_traits_section(story, aggregated_traits, styles)
+        trait_map: dict[str, dict[int, str | list[str]]] = {}
+        for chap_num, appearance in entity.appearances.items():
+            for trait_name, trait_val in appearance.traits.items():
+                if trait_name not in trait_map:
+                    trait_map[trait_name] = {}
+                trait_map[trait_name][chap_num] = trait_val
+
+        for trait_name in sorted(trait_map.keys()):
+            _add_trait_section(story, trait_name, trait_map[trait_name], styles)
 
     story.append(Spacer(1, 12))
-
-
-def _process_category(
-    story: list,
-    category: str,
-    entities: dict[str, EntityEntry],
-    styles: dict,
-) -> None:
-    """Process a category and add it to the story.
-
-    Args:
-        story: The list of flowables.
-        category: The category name.
-        entities: The dictionary of entities in the category.
-        styles: The stylesheet.
-    """
-    story.append(Paragraph(category, styles["Heading1"]))
-    story.append(Spacer(1, 12))
-
-    for entity_name in sorted(entities.keys()):
-        _process_entity(story, entity_name, entities[entity_name], styles)
 
 
 def generate_pdf_report(data: Binder, output_path: Path) -> None:
-    """Generate a PDF report from the analysis data.
-
-    Args:
-        data: The Binder dictionary containing categorized entity data.
-        output_path: Path to save the PDF to.
-    """
+    """Generate a PDF report from the Binder model."""
     doc = SimpleDocTemplate(str(output_path), pagesize=LETTER)
     styles = get_document_styles()
     story = []
@@ -185,9 +93,12 @@ def generate_pdf_report(data: Binder, output_path: Path) -> None:
     story.append(Paragraph("LoreBinders Story Bible", styles["Title"]))
     story.append(Spacer(1, 12))
 
-    for category in sorted(data.keys()):
-        entities = data[category]
-        if isinstance(entities, dict):
-            _process_category(story, category, entities, styles)
+    for cat_name in sorted(data.categories.keys()):
+        category = data.categories[cat_name]
+        story.append(Paragraph(category.name, styles["Heading1"]))
+        story.append(Spacer(1, 12))
+
+        for entity_name in sorted(category.entities.keys()):
+            _process_entity(story, category.entities[entity_name], styles)
 
     doc.build(story)

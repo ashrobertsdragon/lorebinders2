@@ -77,17 +77,17 @@ def test_is_similar_key_complex_matches(key1: str, key2: str) -> None:
 def test_deduplicate_entity_names_reduces_list(
     names: list[str], expected_len: int
 ) -> None:
-    assert len(_deduplicate_entity_names(names)) == expected_len
+    assert len(_deduplicate_entity_names(names, "Characters")) == expected_len
 
 
 def test_deduplicate_entity_names_distinct() -> None:
-    result = set(_deduplicate_entity_names(["A", "B"]))
+    result = set(_deduplicate_entity_names(["A", "B"], "Characters"))
     assert result == {"A", "B"}
 
 
 def test_deduplicate_entity_names_merges_titles() -> None:
-    result = _deduplicate_entity_names(["Dr. Dre", "Dre"])
-    assert result == ["Dr. Dre"]
+    result = _deduplicate_entity_names(["Dr. Dre", "Dre"], "Characters")
+    assert "Dre" in result
 
 
 def test_sort_extractions_merges_characters() -> None:

@@ -9,7 +9,7 @@ from pydantic_ai.messages import (
 )
 from pydantic_ai.models.function import FunctionModel
 
-from lorebinders import models, types
+from lorebinders import models
 from lorebinders.agent import (
     create_analysis_agent,
     create_extraction_agent,
@@ -39,7 +39,8 @@ def test_config(tmp_path):
     )
 
 
-def test_create_extractor(test_config, test_deps) -> None:
+@pytest.mark.anyio
+async def test_create_extractor(test_config, test_deps) -> None:
     def test_extract(
         messages: list[ModelMessage], info: object
     ) -> ModelResponse:
@@ -80,12 +81,13 @@ def test_create_extractor(test_config, test_deps) -> None:
         chapter = models.Chapter(
             number=1, title="Ch1", content="Some chapter content"
         )
-        results = extractor(chapter)
+        results = await extractor(chapter)
 
         assert results == {"Characters": ["Alice", "Bob"]}
 
 
-def test_create_analyzer(test_deps) -> None:
+@pytest.mark.anyio
+async def test_create_analyzer(test_deps) -> None:
     """Test create_analyzer logic with FunctionModel."""
 
     def test_analyze(
@@ -123,10 +125,10 @@ def test_create_analyzer(test_deps) -> None:
 
         chapter = models.Chapter(number=1, title="Ch1", content="Context")
 
-        categories: list[types.CategoryTarget] = [
-            types.CategoryTarget(name="Characters", entities=["Alice"])
+        categories: list[models.CategoryTarget] = [
+            models.CategoryTarget(name="Characters", entities=["Alice"])
         ]
-        profiles = analyzer(categories, chapter)
+        profiles = await analyzer(categories, chapter)
 
         assert len(profiles) == 1
         profile = profiles[0]

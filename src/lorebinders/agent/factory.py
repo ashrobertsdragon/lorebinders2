@@ -9,23 +9,31 @@ from pydantic_ai.tools import AgentDepsT
 from lorebinders.models import (
     AgentDeps,
     AnalysisResult,
+    CategoryTarget,
     ExtractionResult,
     NarratorConfig,
     SummarizerResult,
 )
 from lorebinders.settings import Settings, get_settings
-from lorebinders.types import CategoryTarget
 
 
 def load_prompt_from_assets(filename: str) -> str:
     """Load a prompt template from the assets directory.
 
+    Args:
+        filename: The name of the prompt file to load.
+
     Returns:
         The content of the prompt file.
+
+    Raises:
+        FileNotFoundError: If the prompt file does not exist.
     """
-    return (Path(__file__).parent / "assets" / "prompts" / filename).read_text(
-        encoding="utf-8"
-    )
+    path = Path(__file__).parent / "assets" / "prompts" / filename
+    if not path.exists():
+        raise FileNotFoundError(f"Prompt file not found: {path}")
+
+    return path.read_text(encoding="utf-8")
 
 
 logger = logging.getLogger(__name__)
@@ -40,12 +48,13 @@ def create_agent(
     """Create a PydanticAI Agent with the given model.
 
     Args:
-        model_name: The model identifier (e.g. 'openai:gpt-4o-mini').
-        deps_type: The type of dependencies (configuration) the agent uses.
-        output_type: The expected output type of the agent.
+        model_name: The name of the model to use.
+        deps_type: The type of dependencies to inject.
+        output_type: The type of the expected output.
+        model_settings: Optional settings for the model.
 
     Returns:
-        A configured Agent instance.
+        A configured PydanticAI Agent.
     """
     logger.debug(f"Creating agent for model: {model_name}")
     return Agent(
@@ -65,15 +74,16 @@ def run_agent(
     """Run an agent synchronously and return the output.
 
     Args:
-        agent: The agent instance to run.
-        user_prompt: The prompt text to send to the agent.
-        deps: The dependencies (configuration) for this run.
-        model_settings: Optional provider-specific model settings.
+        agent: The agent to run.
+        user_prompt: The user prompt to send to the agent.
+        deps: The dependencies to inject into the agent.
+        model_settings: Optional settings for the model.
 
     Returns:
-        The structured output from the agent.
+        The output data from the agent run.
     """
-    logger.debug(f"Running agent with model: {agent.model.name()}")
+    model_name = getattr(agent.model, "model_name", "unknown")
+    logger.debug(f"Running agent with model: {model_name}")
     try:
         result = agent.run_sync(
             user_prompt, deps=deps, model_settings=model_settings
@@ -91,10 +101,10 @@ def create_extraction_agent(
     """Create a configured extraction agent.
 
     Args:
-        settings: Application settings. Uses defaults if not provided.
+        settings: Optional settings to use for the agent.
 
     Returns:
-        A configured Agent instance.
+        A configured extraction agent.
     """
     settings = settings or get_settings()
 
@@ -121,13 +131,13 @@ def build_extraction_user_prompt(
     """Build the user prompt for batch extraction of all categories.
 
     Args:
-        text: The text to extract from.
-        categories: The categories to extract.
-        description: A description of the categories.
-        narrator: The narrator configuration.
+        text: The text to extract entities from.
+        categories: A list of categories to extract.
+        description: Optional description of the categories.
+        narrator: Optional narrator configuration.
 
     Returns:
-        The constructed user prompt string.
+        The constructed user prompt.
     """
     prompt = ["## CATEGORIES TO EXTRACT"]
     prompt.extend([f"- {cat}" for cat in categories])
@@ -151,10 +161,10 @@ def create_analysis_agent(
     """Create a configured analysis agent.
 
     Args:
-        settings: Application settings. Uses defaults if not provided.
+        settings: Optional settings to use for the agent.
 
     Returns:
-        A configured Agent instance.
+        A configured analysis agent.
     """
     settings = settings or get_settings()
     agent = create_agent(
@@ -177,20 +187,19 @@ def build_analysis_user_prompt(
     """Build user prompt for batch analysis.
 
     Args:
-        context_text: The chapter content.
-        categories: List of dicts with 'name', 'entities', 'traits'.
+        context_text: The context text for analysis.
+        categories: A list of target categories for analysis.
 
     Returns:
-        The constructed user prompt string.
+        The constructed user prompt.
     """
     prompt = [f"## CONTEXT\n{context_text}\n", "## TASKS"]
     for category in categories:
-        prompt.append(
-            f"### {category['name']}\nAnalyze the following traits:\n"
-        )
-        prompt.append("\n- ".join(category["traits"]))
+        prompt.append(f"### {category.name}\nAnalyze the following traits:\n")
+        if category.traits:
+            prompt.append("\n- ".join(category.traits))
         prompt.append("### Entities:\n")
-        prompt.extend([f"- {entity}" for entity in category["entities"]])
+        prompt.extend([f"- {entity}" for entity in category.entities])
 
     return "\n".join(prompt)
 
@@ -201,10 +210,10 @@ def create_summarization_agent(
     """Create a configured summarization agent.
 
     Args:
-        settings: Application settings. Uses defaults if not provided.
+        settings: Optional settings to use for the agent.
 
     Returns:
-        A configured Agent instance.
+        A configured summarization agent.
     """
     settings = settings or get_settings()
     agent = create_agent(
@@ -227,8 +236,13 @@ def build_summarization_user_prompt(
 ) -> str:
     """Build user prompt for summarization.
 
+    Args:
+        entity_name: The name of the entity to summarize.
+        category: The category of the entity.
+        context_data: The context data for the entity.
+
     Returns:
-        The constructed user prompt string.
+        The constructed user prompt.
     """
     return (
         f"## ENTITY: {entity_name} ({category})\n\n"

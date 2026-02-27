@@ -1,19 +1,14 @@
-"""Entity cleaning logic for refinement."""
+"""Entity cleaning logic for refinement using Binder models."""
 
 import logging
 import re
 
+from lorebinders.models import Binder, CategoryRecord, EntityRecord
 from lorebinders.refinement.normalization import (
-    merge_values,
     remove_titles,
 )
-from lorebinders.types import (
-    Binder,
-    CleanableDict,
-    CleanableValue,
-    EntityData,
-    TraitDict,
-)
+
+logger = logging.getLogger(__name__)
 
 NARRATOR_PATTERN = re.compile(
     r"\b(narrator|the narrator|the protagonist|protagonist|"
@@ -30,190 +25,58 @@ def clean_str(text: str) -> str:
     """Clean 'none found' from strings.
 
     Args:
-        text (str): The text to clean.
+        text: The string to clean.
 
     Returns:
-        str: The cleaned text.
+        The cleaned string.
     """
     if text.lower().strip() == "none found":
         return ""
     return text
 
 
-def clean_list(items: list[CleanableValue]) -> list[CleanableValue]:
-    """Recursively clean items in a list.
+def clean_traits(
+    traits: dict[str, str | list[str]],
+) -> dict[str, str | list[str]]:
+    """Recursively clean traits dictionary.
 
     Args:
-        items: The list to clean.
+        traits: The traits dictionary to clean.
 
     Returns:
-        The cleaned list.
+        The cleaned traits dictionary.
     """
-    cleaned: list[CleanableValue] = []
-    for item in items:
-        if isinstance(item, str):
-            cleaned_str = clean_str(item)
-            if cleaned_str:
-                cleaned.append(cleaned_str)
-        elif isinstance(item, dict):
-            cleaned_dict = clean_none_found(item)
-            if cleaned_dict:
-                cleaned.append(cleaned_dict)
-        elif isinstance(item, list):
-            cleaned_inner_list = clean_list(item)
-            if cleaned_inner_list:
-                cleaned.append(cleaned_inner_list)
-    return cleaned
-
-
-def clean_none_found(data: CleanableDict) -> CleanableDict:
-    """Recursively remove 'none found' values from a dictionary.
-
-    Args:
-        data: The dictionary to clean.
-
-    Returns:
-        The cleaned dictionary.
-    """
-    cleaned: CleanableDict = {}
-    for key, value in data.items():
+    cleaned: dict[str, str | list[str]] = {}
+    for key, value in traits.items():
         if key.lower().strip() == "none found":
             continue
 
-        if isinstance(value, dict):
-            cleaned_val_dict = clean_none_found(value)
-            if cleaned_val_dict:
-                cleaned[key] = cleaned_val_dict
+        if isinstance(value, str):
+            val = clean_str(value)
+            if val:
+                cleaned[key] = val
         elif isinstance(value, list):
-            cleaned_val_list = clean_list(value)
-            if cleaned_val_list:
-                cleaned[key] = cleaned_val_list
-        elif isinstance(value, str):
-            cleaned_val_str = clean_str(value)
-            if cleaned_val_str:
-                cleaned[key] = cleaned_val_str
+            val_list: list[str] = [
+                clean_str(v) if isinstance(v, str) else v for v in value
+            ]
+            val_list = [v for v in val_list if v]
+            if val_list:
+                cleaned[key] = val_list
     return cleaned
 
 
-def replace_narrator(data: Binder, narrator_name: str | None) -> Binder:
-    """Replace narrator references with a name.
-
-    Args:
-        data: The binder data to replace narrator references in.
-        narrator_name: The name to replace narrator reference with.
-
-    Returns:
-        The data with narrator references replaced.
-    """
-    if not narrator_name:
-        return data
-
-    new_binder: Binder = {}
-    for category, entities in data.items():
-        new_category = NARRATOR_PATTERN.sub(narrator_name, category)
-        new_entities = _replace_narrator_in_entities(entities, narrator_name)
-        if new_category in new_binder:
-            new_binder[new_category] = merge_values(
-                new_binder[new_category], new_entities
-            )
-        else:
-            new_binder[new_category] = new_entities
-    return new_binder
-
-
-def _replace_narrator_in_entities(
-    entities: EntityData, narrator_name: str
-) -> EntityData:
-    """Replace narrator references in entity data.
-
-    Args:
-        entities: The entity data to process.
-        narrator_name: The name to replace narrator reference with.
-
-    Returns:
-        The entity data with narrator references replaced.
-    """
-    new_entities: EntityData = {}
-    for name, entry in entities.items():
-        new_name = NARRATOR_PATTERN.sub(narrator_name, name)
-        new_entry = _replace_narrator_in_entry(entry, narrator_name)
-        if new_name in new_entities:
-            new_entities[new_name] = merge_values(
-                new_entities[new_name], new_entry
-            )
-        else:
-            new_entities[new_name] = new_entry
-    return new_entities
-
-
-def _replace_narrator_in_entry(
-    entry: dict[int | str, TraitDict | str], narrator_name: str
-) -> dict[int | str, TraitDict | str]:
-    """Replace narrator references in a single entity entry.
-
-    Args:
-        entry: The entity entry to process.
-        narrator_name: The name to replace narrator reference with.
-
-    Returns:
-        The entry with narrator references replaced.
-    """
-    new_entry: dict[int | str, TraitDict | str] = {}
-    for key, value in entry.items():
-        new_key = key
-        if isinstance(key, str):
-            new_key = NARRATOR_PATTERN.sub(narrator_name, key)
-
-        if isinstance(value, str):
-            new_entry[new_key] = NARRATOR_PATTERN.sub(narrator_name, value)
-        elif isinstance(value, dict):
-            new_entry[new_key] = _replace_narrator_in_traits(
-                value, narrator_name
-            )
-        else:
-            new_entry[new_key] = value
-    return new_entry
-
-
-def _replace_narrator_in_traits(
-    traits: TraitDict, narrator_name: str
-) -> TraitDict:
-    """Replace narrator references in trait dictionary.
-
-    Args:
-        traits: The trait dictionary to process.
-        narrator_name: The name to replace narrator reference with.
-
-    Returns:
-        The trait dictionary with narrator references replaced.
-    """
-    new_traits: TraitDict = {}
-    for trait_key, trait_value in traits.items():
-        new_key = NARRATOR_PATTERN.sub(narrator_name, trait_key)
-        if isinstance(trait_value, str):
-            new_traits[new_key] = NARRATOR_PATTERN.sub(
-                narrator_name, trait_value
-            )
-        elif isinstance(trait_value, list):
-            new_traits[new_key] = [
-                NARRATOR_PATTERN.sub(narrator_name, v)
-                if isinstance(v, str)
-                else v
-                for v in trait_value
-            ]
-        else:
-            new_traits[new_key] = trait_value
-    return new_traits
+def _replace_narrator_text(text: str, narrator_name: str) -> str:
+    return NARRATOR_PATTERN.sub(narrator_name, text)
 
 
 def standardize_location(name: str) -> str:
     """Remove suffixes like (Interior) or - Night from locations.
 
     Args:
-        name (str): The name to standardize.
+        name: The location name to standardize.
 
     Returns:
-        str: The standardized name.
+        The standardized location name.
     """
     return LOCATION_SUFFIX_PATTERN.sub("", name).strip()
 
@@ -223,13 +86,13 @@ def _clean_entity_name(name: str, category: str) -> str:
 
     Args:
         name: The entity name to clean.
-        category: The entity category.
+        category: The category of the entity.
 
     Returns:
         The cleaned entity name.
 
     Raises:
-        ValueError: If the entity name exceeds maximum length.
+        ValueError: If the entity name exceeds the maximum length.
     """
     if len(name) > MAX_ENTITY_NAME_LENGTH:
         raise ValueError(
@@ -244,54 +107,78 @@ def _clean_entity_name(name: str, category: str) -> str:
     return name
 
 
-def _process_category_entities(
-    entities: EntityData, category: str
-) -> EntityData:
-    """Process all entities in a category.
-
-    Cleans names and merges duplicates.
-
-    Args:
-        entities: The entity data for a category.
-        category: The category name.
-
-    Returns:
-        The processed entities dictionary.
-    """
-    new_entities: EntityData = {}
-    for name, details in entities.items():
-        clean_name = _clean_entity_name(name, category)
-        if clean_name in new_entities:
-            new_entities[clean_name] = merge_values(
-                new_entities[clean_name], details
-            )
-        else:
-            new_entities[clean_name] = details
-    return new_entities
-
-
-logger = logging.getLogger(__name__)
-
-
 def clean_binder(binder: Binder, narrator_name: str | None) -> Binder:
-    """Full cleaning pipeline.
+    """Full cleaning pipeline using Binder model.
 
     Args:
-        binder: The binder to clean.
-        narrator_name: The name to replace narrator reference with.
+        binder: The Binder model to clean.
+        narrator_name: The name of the narrator to replace placeholders.
 
     Returns:
-        The cleaned binder.
+        The cleaned Binder model.
     """
     logger.debug("Starting binder cleaning...")
 
-    if narrator_name:
-        logger.debug(f"Replacing narrator references with '{narrator_name}'")
-        binder = replace_narrator(binder, narrator_name)
+    new_binder = Binder()
 
-    cleaned = {
-        category: _process_category_entities(entities, category)
-        for category, entities in binder.items()
-    }
+    for cat_name, category in binder.categories.items():
+        target_cat_name = (
+            _replace_narrator_text(cat_name, narrator_name)
+            if narrator_name
+            else cat_name
+        )
+
+        for ent_name, entity in category.entities.items():
+            target_ent_name = (
+                _replace_narrator_text(ent_name, narrator_name)
+                if narrator_name
+                else ent_name
+            )
+
+            clean_name = _clean_entity_name(target_ent_name, target_cat_name)
+
+            for chap_num, appearance in entity.appearances.items():
+                cleaned_traits = clean_traits(appearance.traits)
+
+                if narrator_name:
+                    final_traits: dict[str, str | list[str]] = {}
+                    for k, v in cleaned_traits.items():
+                        new_k = _replace_narrator_text(k, narrator_name)
+                        if isinstance(v, str):
+                            final_traits[new_k] = _replace_narrator_text(
+                                v, narrator_name
+                            )
+                        elif isinstance(v, list):
+                            final_traits[new_k] = [
+                                _replace_narrator_text(i, narrator_name)
+                                if isinstance(i, str)
+                                else i
+                                for i in v
+                            ]
+                        else:
+                            final_traits[new_k] = v
+                    cleaned_traits = final_traits
+
+                if cleaned_traits:
+                    new_binder.add_appearance(
+                        target_cat_name, clean_name, chap_num, cleaned_traits
+                    )
+
+            if entity.summary:
+                sum_text = entity.summary
+                if narrator_name:
+                    sum_text = _replace_narrator_text(sum_text, narrator_name)
+
+                if target_cat_name not in new_binder.categories:
+                    new_binder.categories[target_cat_name] = CategoryRecord(
+                        name=target_cat_name
+                    )
+                cat = new_binder.categories[target_cat_name]
+                if clean_name not in cat.entities:
+                    cat.entities[clean_name] = EntityRecord(
+                        name=clean_name, category=target_cat_name
+                    )
+                cat.entities[clean_name].summary = sum_text
+
     logger.debug("Binder cleaning complete.")
-    return cleaned
+    return new_binder

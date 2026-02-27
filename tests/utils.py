@@ -1,5 +1,4 @@
 import json
-from typing import Any
 
 from pydantic_ai.messages import (
     ModelMessage,
@@ -12,12 +11,12 @@ from pydantic_ai.models.function import FunctionModel
 
 
 def create_mock_model(
-    response_data: Any,
+    response_data: object,
     model_name: str | None = None,
 ) -> tuple[FunctionModel, list[ModelMessage]]:
     captured_messages: list[ModelMessage] = []
 
-    def _serialize(data: Any) -> Any:
+    def _serialize(data: object) -> object:
         if hasattr(data, "model_dump"):
             return data.model_dump()
         if isinstance(data, list):

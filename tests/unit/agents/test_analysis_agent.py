@@ -6,10 +6,10 @@ from lorebinders.agent import (
 from lorebinders.models import (
     AgentDeps,
     AnalysisResult,
+    CategoryTarget,
     TraitValue,
 )
 from lorebinders.settings import Settings
-from lorebinders.types import CategoryTarget
 from tests.utils import create_mock_model, get_system_prompt
 
 
@@ -71,23 +71,13 @@ def test_analysis_agent_run_sync_and_prompt() -> None:
 
     assert system_prompt_content != ""
 
-    for msg in captured_messages:
-        if hasattr(msg, "parts"):
-            for part in msg.parts:
-                if hasattr(part, "content") and not isinstance(
-                    part, type(get_system_prompt)
-                ):
-                    pass
-
     assert "Mock content for analysis.txt" in system_prompt_content
 
     found_user_text = False
     for msg in captured_messages:
         if hasattr(msg, "parts"):
             for part in msg.parts:
-                if getattr(part, "part_kind", "") == "user-prompt" or (
-                    hasattr(part, "content") and "Gandalf" in str(part.content)
-                ):
+                if hasattr(part, "content") and "Gandalf" in str(part.content):
                     found_user_text = True
 
     assert found_user_text, "Dynamic content not found in messages"

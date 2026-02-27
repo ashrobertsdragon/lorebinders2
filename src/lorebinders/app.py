@@ -1,4 +1,6 @@
-from collections.abc import Callable
+import asyncio
+import logging
+from collections.abc import Awaitable, Callable
 from pathlib import Path
 
 from pydantic_ai import Agent
@@ -9,23 +11,25 @@ from lorebinders.agent import (
     create_analysis_agent,
     create_extraction_agent,
     load_prompt_from_assets,
-    run_agent,
 )
 from lorebinders.models import (
     AgentDeps,
     AnalysisResult,
+    CategoryTarget,
     Chapter,
     EntityProfile,
     ExtractionResult,
     ProgressUpdate,
     RunConfiguration,
+    SummarizerResult,
 )
 from lorebinders.refinement.conversion import ingest
 from lorebinders.reporting.pdf import generate_pdf_report
 from lorebinders.settings import Settings, get_settings
 from lorebinders.storage.workspace import ensure_workspace, sanitize_filename
-from lorebinders.types import CategoryTarget
 from lorebinders.workflow import build_binder
+
+logger = logging.getLogger(__name__)
 
 
 def merge_traits(
@@ -67,8 +71,8 @@ def create_extractor(
     agent: Agent[AgentDeps, ExtractionResult],
     deps: AgentDeps,
     categories: list[str],
-) -> Callable[[Chapter], dict[str, list[str]]]:
-    """Create an extraction function.
+) -> Callable[[Chapter], Awaitable[dict[str, list[str]]]]:
+    """Create an async extraction function.
 
     Args:
         config: The run configuration.
@@ -80,14 +84,14 @@ def create_extractor(
         A callable that extracts entities mapping category -> names.
     """
 
-    def extract(chapter: Chapter) -> dict[str, list[str]]:
+    async def extract(chapter: Chapter) -> dict[str, list[str]]:
         prompt = build_extraction_user_prompt(
             text=chapter.content,
             categories=categories,
             narrator=config.narrator_config,
         )
-        result = run_agent(agent, prompt, deps)
-        return result.to_dict()
+        result = await agent.run(prompt, deps=deps)
+        return result.output.to_dict()
 
     return extract
 
@@ -96,8 +100,8 @@ def create_analyzer(
     agent: Agent[AgentDeps, list[AnalysisResult]],
     deps: AgentDeps,
     effective_traits: dict[str, list[str]],
-) -> Callable[[list[CategoryTarget], Chapter], list[EntityProfile]]:
-    """Create an analysis function.
+) -> Callable[[list[CategoryTarget], Chapter], Awaitable[list[EntityProfile]]]:
+    """Create an async analysis function.
 
     Args:
         agent: The analysis agent.
@@ -108,32 +112,33 @@ def create_analyzer(
         A callable that analyzes a batch of entities.
     """
 
-    def analyze(
+    async def analyze(
         categories: list[CategoryTarget], context: Chapter
     ) -> list[EntityProfile]:
         for category in categories:
-            cat = category["name"]
+            cat = category.name
             traits = effective_traits.get(cat, [])
             if not traits:
                 traits = ["Description", "Role"]
-            category["traits"] = traits
+            category.traits = traits
 
         full_prompt = build_analysis_user_prompt(
             context_text=context.content,
             categories=categories,
         )
 
-        results = run_agent(agent, full_prompt, deps)
+        result = await agent.run(full_prompt, deps=deps)
+        results = result.output
 
         profiles = []
-        for result in results:
+        for r in results:
             profile_traits: dict[str, str | list[str]] = {
-                trait.trait: trait.value for trait in result.traits
+                trait.trait: trait.value for trait in r.traits
             }
             profiles.append(
                 EntityProfile(
-                    name=result.entity_name,
-                    category=result.category,
+                    name=r.entity_name,
+                    category=r.category,
                     chapter_number=context.number,
                     traits=profile_traits,
                     confidence_score=0.8,
@@ -144,16 +149,21 @@ def create_analyzer(
     return analyze
 
 
-def run(
+async def _run_async(
     config: RunConfiguration,
     progress: Callable[[ProgressUpdate], None] | None = None,
-    log_file: Path | None = None,
+    extraction_agent: Agent[AgentDeps, ExtractionResult] | None = None,
+    analysis_agent: Agent[AgentDeps, list[AnalysisResult]] | None = None,
+    summarization_agent: Agent[AgentDeps, SummarizerResult] | None = None,
 ) -> Path:
-    """Execute the LoreBinders build pipeline.
+    """Internal async implementation of the run command.
 
     Args:
-        config: The run configuration containing book path, author, title, etc.
+        config: The run configuration.
         progress: Optional callback to report progress.
+        extraction_agent: Optional agent override.
+        analysis_agent: Optional agent override.
+        summarization_agent: Optional agent override.
 
     Returns:
         The path to the generated PDF report.
@@ -165,20 +175,53 @@ def run(
     effective_traits = merge_traits(settings, config)
     all_categories = list(effective_traits.keys())
 
-    extraction_agent = create_extraction_agent(settings)
-    analysis_agent = create_analysis_agent(settings)
+    ext_agent = extraction_agent or create_extraction_agent(settings)
+    ana_agent = analysis_agent or create_analysis_agent(settings)
 
-    extractor = create_extractor(config, extraction_agent, deps, all_categories)
-    analyzer = create_analyzer(analysis_agent, deps, effective_traits)
+    extractor = create_extractor(config, ext_agent, deps, all_categories)
+    analyzer = create_analyzer(ana_agent, deps, effective_traits)
 
-    build_binder(
+    await build_binder(
         config=config,
         ingestion=ingest,
         extraction=extractor,
         analysis=analyzer,
         reporting=generate_pdf_report,
+        summarization_agent=summarization_agent,
         progress=progress,
     )
 
     safe_title = sanitize_filename(config.book_title)
     return output_dir / f"{safe_title}_story_bible.pdf"
+
+
+def run(
+    config: RunConfiguration,
+    progress: Callable[[ProgressUpdate], None] | None = None,
+    log_file: Path | None = None,
+    extraction_agent: Agent | None = None,
+    analysis_agent: Agent | None = None,
+    summarization_agent: Agent | None = None,
+) -> Path:
+    """Execute the LoreBinders build pipeline.
+
+    Args:
+        config: The run configuration containing book path, author, title, etc.
+        progress: Optional callback to report progress.
+        log_file: Optional path to log file.
+        extraction_agent: Optional agent override.
+        analysis_agent: Optional agent override.
+        summarization_agent: Optional agent override.
+
+    Returns:
+        The path to the generated PDF report.
+    """
+    return asyncio.run(
+        _run_async(
+            config,
+            progress,
+            extraction_agent=extraction_agent,
+            analysis_agent=analysis_agent,
+            summarization_agent=summarization_agent,
+        )
+    )

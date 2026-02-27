@@ -14,7 +14,7 @@ def test_settings_config_anthropic() -> None:
 
 
 def test_settings_config_google() -> None:
-    for provider in ["google", "vertexai", "gemini"]:
+    for provider in ["google-gla", "google-vertex"]:
         settings = settings_config(provider)
 
         assert settings["google_thinking_config"] == {"include_thoughts": False}

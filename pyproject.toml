@@ -4,7 +4,7 @@ version = "0.3.0"
 description = "Create a story bible with AI from a finished manuscript"
 requires-python = ">=3.10"
 readme = "README.md"
-licence = {text = "Apache-2.0"}
+license = {text = "Apache-2.0"}
 authors = [{ name = "Ashlynn Antrobus", email = "ashlynn@prosepal.io" }]
 keywords = ["AI", "fiction", "manuscript", "story bible", "writing"]
 classifiers = [
@@ -28,6 +28,7 @@ dependencies = [
     "ebook2text>=2.2.0",
     "pydantic>=2.12.5",
     "pydantic-ai>=1.41.0",
+    "pydantic-settings>=2.12.0",
     "python-dotenv>=1.2.1",
     "reportlab>=4.4.7",
     "typing-extensions>=4.15.0",
@@ -87,7 +88,7 @@ docstring-code-format = true
 line-ending = "lf"
 
 [tool.ruff.lint]
-ignore = ["A002", "ANN002", "ANN003", "ANN204", "ANN401", "D100", "D417"]
+ignore = ["A002", "ANN002", "ANN003", "ANN204", "D100", "D417"]
 select = ["A", "ANN", "D", "DOC", "E", "F", "I", "N", "UP"]
 
 [tool.ruff.lint.per-file-ignores]

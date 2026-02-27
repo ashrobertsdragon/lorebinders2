@@ -2,25 +2,30 @@ from pathlib import Path
 
 from pypdf import PdfReader
 
+from lorebinders.models import Binder
 from lorebinders.reporting.pdf import generate_pdf_report
-from lorebinders.types import Binder
 
 
 def test_generate_pdf_report_aggregated(tmp_path: Path):
     output_path = tmp_path / "test_report.pdf"
 
-    data: Binder = {
-        "Characters": {
-            "Hero": {
-                "Summary": "The hero is strong.",
-                1: {"Physique": "Lean", "Personality": "Brave"},
-                2: {"Physique": "Muscular", "Personality": "Brave"},
-            }
-        },
-        "Settings": {"Castle": {1: {"Atmosphere": "Dark"}}},
-    }
+    binder = Binder()
+    binder.add_appearance(
+        "Characters", "Hero", 1, {"Physique": "Lean", "Personality": "Brave"}
+    )
+    binder.add_appearance(
+        "Characters",
+        "Hero",
+        2,
+        {"Physique": "Muscular", "Personality": "Brave"},
+    )
+    binder.categories["Characters"].entities[
+        "Hero"
+    ].summary = "The hero is strong."
 
-    generate_pdf_report(data, output_path)
+    binder.add_appearance("Settings", "Castle", 1, {"Atmosphere": "Dark"})
+
+    generate_pdf_report(binder, output_path)
 
     assert output_path.exists()
 

@@ -64,6 +64,89 @@ class EntityProfile(BaseModel):
     confidence_score: float = Field(default=0.0, ge=0.0, le=1.0)
 
 
+class CategoryTarget(BaseModel):
+    """Target category for batch analysis."""
+
+    name: str
+    traits: list[str] | None = None
+    entities: list[str]
+
+
+SortedExtractions = dict[str, dict[str, list[int]]]
+
+CleanableValue = (
+    str
+    | int
+    | float
+    | bool
+    | None
+    | dict[str, "CleanableValue"]
+    | list["CleanableValue"]
+)
+CleanableDict = dict[str, CleanableValue]
+
+
+class EntityAppearance(BaseModel):
+    """Traits for an entity in a specific chapter."""
+
+    traits: dict[str, str | list[str]] = Field(default_factory=dict)
+
+
+class EntityRecord(BaseModel):
+    """Complete record for an entity across the book."""
+
+    name: str
+    category: str
+    appearances: dict[int, EntityAppearance] = Field(default_factory=dict)
+    summary: str | None = None
+
+
+class CategoryRecord(BaseModel):
+    """Record for a category containing multiple entities."""
+
+    name: str
+    entities: dict[str, EntityRecord] = Field(default_factory=dict)
+
+
+class Binder(BaseModel):
+    """The complete Story Bible state."""
+
+    categories: dict[str, CategoryRecord] = Field(default_factory=dict)
+
+    def get_entity(self, category: str, name: str) -> EntityRecord | None:
+        """Helper to safely retrieve an entity record.
+
+        Args:
+            category: The category of the entity.
+            name: The name of the entity.
+
+        Returns:
+            The entity record if found, None otherwise.
+        """
+        cat = self.categories.get(category)
+        if not cat:
+            return None
+        return cat.entities.get(name)
+
+    def add_appearance(
+        self,
+        category: str,
+        name: str,
+        chapter: int,
+        traits: dict[str, str | list[str]],
+    ) -> None:
+        """Add an entity appearance to the binder."""
+        if category not in self.categories:
+            self.categories[category] = CategoryRecord(name=category)
+
+        cat = self.categories[category]
+        if name not in cat.entities:
+            cat.entities[name] = EntityRecord(name=name, category=category)
+
+        ent = cat.entities[name]
+        ent.appearances[chapter] = EntityAppearance(traits=traits)
+
+
 class ExtractionConfig(BaseModel):
     """Configuration for the entity extraction agent."""
 
@@ -94,8 +177,7 @@ class ExtractionResult(BaseModel):
         """Convert results list to category ->entities dictionary.
 
         Returns:
-            dict[str, list[str]]: Dictionary with category names as keys and
-                lists of entity names as values.
+            A dictionary mapping category names to lists of entity names.
         """
         return {item.category: item.entities for item in self.results}
 

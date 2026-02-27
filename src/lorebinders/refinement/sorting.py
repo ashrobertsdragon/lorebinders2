@@ -1,20 +1,20 @@
-"""Entity sorting logic for the pipeline.
+"""Entity sorting and early refinement logic.
 
-Handles aggregation, cleaning, and deduplication of entities BEFORE analysis.
+Normalizes and deduplicates entities IMMEDIATELY after extraction to
+minimize redundant analysis calls.
 """
 
 import logging
 import re
 
+from lorebinders.models import SortedExtractions
 from lorebinders.refinement.deduplication import (
     _is_similar_key,
     _prioritize_keys,
 )
-from lorebinders.types import (
-    CategoryChapterData,
-    CategoryTraits,
-    SortedEntities,
-)
+from lorebinders.refinement.normalization import remove_titles
+
+logger = logging.getLogger(__name__)
 
 NARRATOR_PATTERN = re.compile(
     r"\b(narrator|the narrator|the protagonist|protagonist|"
@@ -22,20 +22,52 @@ NARRATOR_PATTERN = re.compile(
     re.IGNORECASE,
 )
 
+LOCATION_SUFFIX_PATTERN = re.compile(r"\s*[\(\-].*", re.IGNORECASE)
 
-def _replace_narrator_in_category(
-    categories: CategoryTraits, narrator_name: str
-) -> CategoryTraits:
-    """Replace narrator references in category trait data.
+
+def standardize_location(name: str) -> str:
+    """Remove suffixes like (Interior) or - Night from locations.
 
     Args:
-        categories: The category to entity list mapping.
-        narrator_name: The name to replace narrator references with.
+        name: The location name to standardize.
 
     Returns:
-        The data with narrator references replaced.
+        The standardized location name.
     """
-    result: CategoryTraits = {}
+    return LOCATION_SUFFIX_PATTERN.sub("", name).strip()
+
+
+def _clean_entity_name(name: str, category: str) -> str:
+    """Clean an entity name based on its category.
+
+    Args:
+        name: The entity name to clean.
+        category: The category of the entity.
+
+    Returns:
+        The cleaned entity name.
+    """
+    match category.lower():
+        case "locations":
+            return standardize_location(name)
+        case "characters":
+            return remove_titles(name)
+    return name
+
+
+def _replace_narrator_in_category(
+    categories: dict[str, list[str]], narrator_name: str
+) -> dict[str, list[str]]:
+    """Replace narrator references in category data.
+
+    Args:
+        categories: The categories and entity names.
+        narrator_name: The name of the narrator.
+
+    Returns:
+        The updated categories dictionary.
+    """
+    result: dict[str, list[str]] = {}
     for category, names in categories.items():
         new_category = NARRATOR_PATTERN.sub(narrator_name, category)
         new_names = [
@@ -48,20 +80,33 @@ def _replace_narrator_in_category(
     return result
 
 
-def _deduplicate_entity_names(names: list[str]) -> list[str]:
-    """Deduplicate a list of entity names using existing similarity logic.
+def _deduplicate_entity_names(names: list[str], category: str) -> list[str]:
+    """Clean and deduplicate a list of entity names.
 
     Args:
-        names: list of entity names to deduplicate.
+        names: A list of entity names.
+        category: The category of the entities.
 
     Returns:
-        list of deduplicated entity names.
+        A list of cleaned and deduplicated entity names.
     """
-    if len(names) <= 1:
-        return names
+    if not names:
+        return []
+
+    cleaned_names = []
+    for n in names:
+        trimmed = n.strip()
+        if not trimmed:
+            continue
+        cleaned = _clean_entity_name(trimmed, category)
+        if cleaned:
+            cleaned_names.append(cleaned)
+
+    if len(cleaned_names) <= 1:
+        return cleaned_names
 
     canonical_names: list[str] = []
-    for name in names:
+    for name in cleaned_names:
         found_match = False
         for i, existing in enumerate(canonical_names):
             if _is_similar_key(name, existing):
@@ -71,30 +116,27 @@ def _deduplicate_entity_names(names: list[str]) -> list[str]:
                 break
         if not found_match:
             canonical_names.append(name)
+
     return list(set(canonical_names))
 
 
-logger = logging.getLogger(__name__)
-
-
 def sort_extractions(
-    raw_extractions: CategoryChapterData,
+    raw_extractions: dict[int, dict[str, list[str]]],
     narrator_name: str | None = None,
-) -> SortedEntities:
+) -> SortedExtractions:
     """Aggregates, cleans, and deduplicates raw extractions.
 
-    This functions performs the pre-analysis sorting to ensure that
-    synonyms and duplicates are merged into a single entity entry before
-    expensive analysis is performed.
+    Performs early refinement to ensure that synonyms and titles are resolved
+    before analysis.
 
     Args:
         raw_extractions: Map of ChapterNum -> Category -> list[Names]
-        narrator_name: Optional name of the narrator to replace placeholders.
+        narrator_name: Optional name of the narrator.
 
     Returns:
-        Map of Category -> EntityName -> list[ChapterNumbers]
+        SortedExtractions: Map of Category -> EntityName -> list[ChapterNumbers]
     """
-    aggregated: SortedEntities = {}
+    aggregated: SortedExtractions = {}
 
     for chapter_num, categories in raw_extractions.items():
         if narrator_name:
@@ -106,19 +148,10 @@ def sort_extractions(
             if category not in aggregated:
                 aggregated[category] = {}
 
-            valid_names = [n.strip() for n in names if n.strip()]
-            unique_names = list(set(valid_names))
-            deduped_names = _deduplicate_entity_names(unique_names)
-
-            if len(unique_names) != len(deduped_names):
-                logger.debug(
-                    f"Deduplicated {category} in ch{chapter_num}: "
-                    f"{len(unique_names)} -> {len(deduped_names)}"
-                )
+            deduped_names = _deduplicate_entity_names(names, category)
 
             for name in deduped_names:
                 found_match = False
-
                 existing_keys = list(aggregated[category].keys())
 
                 for existing in existing_keys:
@@ -134,10 +167,7 @@ def sort_extractions(
                                     chapter_num
                                 )
                         else:
-                            logger.debug(
-                                f"Merging '{existing}' into better name "
-                                f"'{name}'"
-                            )
+                            logger.debug(f"Merging '{existing}' into '{name}'")
                             chapters = aggregated[category].pop(existing)
                             aggregated[category][name] = chapters
                             if chapter_num not in aggregated[category][name]:
@@ -148,5 +178,9 @@ def sort_extractions(
 
                 if not found_match:
                     aggregated[category][name] = [chapter_num]
+
+    for cat in aggregated.values():
+        for name in cat:
+            cat[name].sort()
 
     return aggregated
