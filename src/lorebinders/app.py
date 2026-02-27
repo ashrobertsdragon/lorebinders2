@@ -18,6 +18,7 @@ from lorebinders.models import (
     CategoryTarget,
     Chapter,
     EntityProfile,
+    EntityTraits,
     ExtractionResult,
     ProgressUpdate,
     RunConfiguration,
@@ -132,7 +133,7 @@ def create_analyzer(
 
         profiles = []
         for r in results:
-            profile_traits: dict[str, str | list[str]] = {
+            profile_traits: EntityTraits = {
                 trait.trait: trait.value for trait in r.traits
             }
             profiles.append(
@@ -141,7 +142,7 @@ def create_analyzer(
                     category=r.category,
                     chapter_number=context.number,
                     traits=profile_traits,
-                    confidence_score=0.8,
+                    confidence_score=deps.settings.confidence_threshold,
                 )
             )
         return profiles

@@ -1,5 +1,6 @@
 """Centralized application settings using pydantic-settings."""
 
+from functools import cache
 from pathlib import Path
 
 from pydantic_ai.settings import ModelSettings
@@ -37,6 +38,8 @@ class Settings(BaseSettings):
         "Character Familiarity",
     ]
 
+    confidence_threshold: float = 0.8
+
     @property
     def extractor_model_settings(self) -> ModelSettings:
         """Set reasoning level for the extraction agent."""
@@ -44,6 +47,7 @@ class Settings(BaseSettings):
         return settings_config(model_provider)
 
 
+@cache
 def get_settings() -> Settings:
     """Get application settings singleton.
 

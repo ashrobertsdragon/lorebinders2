@@ -3,7 +3,12 @@
 from itertools import combinations
 from typing import cast
 
-from lorebinders.models import Binder, CategoryRecord, EntityRecord
+from lorebinders.models import (
+    Binder,
+    CategoryRecord,
+    EntityRecord,
+    EntityTraits,
+)
 from lorebinders.refinement.normalization import (
     TITLES,
     merge_values,
@@ -34,11 +39,11 @@ def _is_similar_key(key1: str, key2: str) -> bool:
     singular_k2 = to_singular(k2)
 
     if any(
-        [
+        (
             k1 == singular_k2,
             singular_k1 == k2,
             singular_k1 == singular_k2,
-        ]
+        )
     ):
         return True
 
@@ -51,24 +56,24 @@ def _is_similar_key(key1: str, key2: str) -> bool:
         return True
 
     destructured_match = any(
-        [
+        (
             f"{detitled_k1} " in f"{k2} ",
             f"{detitled_k2} " in f"{k1} ",
             f"{k1} " in f"{detitled_k2} ",
             f"{k2} " in f"{detitled_k1} ",
-        ]
+        )
     )
 
     if detitled_k1 != k1 or detitled_k2 != k2:
         return any(
-            [
+            (
                 detitled_k1 == k2,
                 k1 == detitled_k2,
                 detitled_k1 == detitled_k2,
                 detitled_k1 == singular_k2,
                 singular_k1 == detitled_k2,
                 destructured_match,
-            ]
+            )
         )
 
     return destructured_match
@@ -101,9 +106,7 @@ def _merge_entities(target: EntityRecord, source: EntityRecord) -> None:
             merged = merge_values(
                 target.appearances[chap_num].traits, appearance.traits
             )
-            target.appearances[chap_num].traits = cast(
-                dict[str, str | list[str]], merged
-            )
+            target.appearances[chap_num].traits = cast(EntityTraits, merged)
         else:
             target.appearances[chap_num] = appearance
 

@@ -106,10 +106,10 @@ async def test_entity_summarizer_orchestration(tmp_path: Path) -> None:
             {"Traits": ["Brave", "Short"], "Item": "Ring"},
         )
 
-        result_binder = await summarize_binder(binder, tmp_path, agent=agent)
+        await summarize_binder(binder, tmp_path, agent=agent)
 
-        assert "Characters" in result_binder.categories
-        frodo = result_binder.categories["Characters"].entities["Frodo"]
+        assert "Characters" in binder.categories
+        frodo = binder.categories["Characters"].entities["Frodo"]
         assert frodo.summary == "A brave hobbit."
         assert frodo.appearances[1].traits == {
             "Traits": ["Brave", "Short"],

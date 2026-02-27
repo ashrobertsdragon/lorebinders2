@@ -1,22 +1,22 @@
 """Entity cleaning logic for refinement using Binder models."""
 
 import logging
-import re
 
-from lorebinders.models import Binder, CategoryRecord, EntityRecord
+from lorebinders.models import (
+    Binder,
+    CategoryRecord,
+    EntityRecord,
+    EntityTraits,
+)
 from lorebinders.refinement.normalization import (
     remove_titles,
 )
-
-logger = logging.getLogger(__name__)
-
-NARRATOR_PATTERN = re.compile(
-    r"\b(narrator|the narrator|the protagonist|protagonist|"
-    r"the main character|main character|i|me|my|myself)\b",
-    re.IGNORECASE,
+from lorebinders.refinement.patterns import (
+    LOCATION_SUFFIX_PATTERN,
+    NARRATOR_PATTERN,
 )
 
-LOCATION_SUFFIX_PATTERN = re.compile(r"\s*[\(\-].*", re.IGNORECASE)
+logger = logging.getLogger(__name__)
 
 MAX_ENTITY_NAME_LENGTH = 200
 
@@ -36,8 +36,8 @@ def clean_str(text: str) -> str:
 
 
 def clean_traits(
-    traits: dict[str, str | list[str]],
-) -> dict[str, str | list[str]]:
+    traits: EntityTraits,
+) -> EntityTraits:
     """Recursively clean traits dictionary.
 
     Args:
@@ -46,7 +46,7 @@ def clean_traits(
     Returns:
         The cleaned traits dictionary.
     """
-    cleaned: dict[str, str | list[str]] = {}
+    cleaned: EntityTraits = {}
     for key, value in traits.items():
         if key.lower().strip() == "none found":
             continue
@@ -141,7 +141,7 @@ def clean_binder(binder: Binder, narrator_name: str | None) -> Binder:
                 cleaned_traits = clean_traits(appearance.traits)
 
                 if narrator_name:
-                    final_traits: dict[str, str | list[str]] = {}
+                    final_traits: EntityTraits = {}
                     for k, v in cleaned_traits.items():
                         new_k = _replace_narrator_text(k, narrator_name)
                         if isinstance(v, str):

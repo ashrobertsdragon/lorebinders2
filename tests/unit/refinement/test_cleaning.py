@@ -1,6 +1,6 @@
 import pytest
 
-from lorebinders.models import Binder
+from lorebinders.models import Binder, EntityTraits
 from lorebinders.refinement.cleaning import (
     _clean_entity_name,
     clean_binder,
@@ -32,7 +32,7 @@ def test_clean_str(input_str: str, expected: str) -> None:
 
 
 def test_clean_traits_removes_empty_values() -> None:
-    traits: dict[str, str | list[str]] = {
+    traits: EntityTraits = {
         "Eyes": "Blue",
         "Hair": "None found",
         "Traits": ["Brave", "none found"],

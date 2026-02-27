@@ -1,6 +1,7 @@
 """Text normalization utilities shared across refinement modules."""
 
-from typing import cast
+import re
+from typing import Any, cast
 
 from lorebinders.models import CleanableValue
 
@@ -117,8 +118,6 @@ def to_singular(plural: str) -> str:
     Returns:
         The singular form of the word.
     """
-    import re
-
     if not plural:
         return ""
 
@@ -149,7 +148,7 @@ def to_singular(plural: str) -> str:
     return plural
 
 
-def merge_values(v1: object, v2: object) -> CleanableValue:
+def merge_values(v1: CleanableValue, v2: CleanableValue) -> CleanableValue:
     """Merge two values when keys collide during entity resolution.
 
     Args:
@@ -162,14 +161,23 @@ def merge_values(v1: object, v2: object) -> CleanableValue:
     if isinstance(v1, dict) and isinstance(v2, dict):
         merged = v1.copy()
         for k, v in v2.items():
-            merged[k] = merge_values(merged[k], v) if k in merged else v
+            if k in merged:
+                merged[k] = cast(Any, merge_values(merged[k], v))
+            else:
+                merged[k] = v
         return cast(CleanableValue, merged)
     if isinstance(v1, list) and isinstance(v2, list):
         return cast(CleanableValue, list(set(v1 + v2)))
     if isinstance(v1, list):
-        return cast(CleanableValue, list(set(v1 + [v2])))
+        if isinstance(v2, (str | int | float)):
+            new_list = list(set(cast(list[str | int | float], v1) + [v2]))
+            return cast(CleanableValue, new_list)
+        return cast(CleanableValue, v1)
     if isinstance(v2, list):
-        return cast(CleanableValue, list(set([v1] + v2)))
+        if isinstance(v1, (str | int | float)):
+            new_list = list(set([v1] + cast(list[str | int | float], v2)))
+            return cast(CleanableValue, new_list)
+        return cast(CleanableValue, v2)
     return (
         cast(CleanableValue, v1) if v1 == v2 else cast(CleanableValue, [v1, v2])
     )

@@ -5,7 +5,6 @@ minimize redundant analysis calls.
 """
 
 import logging
-import re
 
 from lorebinders.models import SortedExtractions
 from lorebinders.refinement.deduplication import (
@@ -13,16 +12,12 @@ from lorebinders.refinement.deduplication import (
     _prioritize_keys,
 )
 from lorebinders.refinement.normalization import remove_titles
-
-logger = logging.getLogger(__name__)
-
-NARRATOR_PATTERN = re.compile(
-    r"\b(narrator|the narrator|the protagonist|protagonist|"
-    r"the main character|main character|i|me|my|myself)\b",
-    re.IGNORECASE,
+from lorebinders.refinement.patterns import (
+    LOCATION_SUFFIX_PATTERN,
+    NARRATOR_PATTERN,
 )
 
-LOCATION_SUFFIX_PATTERN = re.compile(r"\s*[\(\-].*", re.IGNORECASE)
+logger = logging.getLogger(__name__)
 
 
 def standardize_location(name: str) -> str:

@@ -52,13 +52,17 @@ class Book(BaseModel):
     chapters: list[Chapter] = Field(default_factory=list)
 
 
+EntityTraits = dict[str, str | list[str]]
+CleanableValue = str | int | float | bool | None | EntityTraits | list[str]
+
+
 class EntityProfile(BaseModel):
     """Structured output for an entity analysis."""
 
     name: str
     category: str
     chapter_number: int
-    traits: dict[str, str | list[str]] = Field(
+    traits: EntityTraits = Field(
         default_factory=dict, description="Map of trait keys to analysis values"
     )
     confidence_score: float = Field(default=0.0, ge=0.0, le=1.0)
@@ -74,22 +78,11 @@ class CategoryTarget(BaseModel):
 
 SortedExtractions = dict[str, dict[str, list[int]]]
 
-CleanableValue = (
-    str
-    | int
-    | float
-    | bool
-    | None
-    | dict[str, "CleanableValue"]
-    | list["CleanableValue"]
-)
-CleanableDict = dict[str, CleanableValue]
-
 
 class EntityAppearance(BaseModel):
     """Traits for an entity in a specific chapter."""
 
-    traits: dict[str, str | list[str]] = Field(default_factory=dict)
+    traits: EntityTraits = Field(default_factory=dict)
 
 
 class EntityRecord(BaseModel):
@@ -133,7 +126,7 @@ class Binder(BaseModel):
         category: str,
         name: str,
         chapter: int,
-        traits: dict[str, str | list[str]],
+        traits: EntityTraits,
     ) -> None:
         """Add an entity appearance to the binder."""
         if category not in self.categories:

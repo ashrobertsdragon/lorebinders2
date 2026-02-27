@@ -22,9 +22,12 @@ from lorebinders.workflow import (
 @pytest.fixture
 def temp_workspace(tmp_path: Path) -> Path:
     """Fixture providing a temporary workspace directory."""
+    from lorebinders.settings import get_settings
+
     ws = tmp_path / "work"
     ws.mkdir()
     os.environ["LOREBINDERS_WORKSPACE_BASE_PATH"] = str(ws)
+    get_settings.cache_clear()
     return ws
 
 

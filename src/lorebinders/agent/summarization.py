@@ -44,6 +44,7 @@ async def _summarize_entity(
     agent: Agent[AgentDeps, SummarizerResult],
     prompt: str,
     storage: StorageProvider,
+    deps: AgentDeps,
 ) -> str:
     """Summarize an entity using the AI agent with abstracted storage.
 
@@ -54,6 +55,7 @@ async def _summarize_entity(
         agent: The agent to use for summarization.
         prompt: The prompt to use for summarization.
         storage: The storage provider for persistence.
+        deps: The dependencies to inject into the agent.
 
     Returns:
         str: The summary text.
@@ -64,10 +66,6 @@ async def _summarize_entity(
 
     logger.info(f"Summarizing {category}: {name}")
     try:
-        deps = AgentDeps(
-            settings=get_settings(),
-            prompt_loader=load_prompt_from_assets,
-        )
         result = await agent.run(prompt, deps=deps)
         summary_text = result.output.summary
         storage.save_summary(summaries_dir, category, name, summary_text)
@@ -84,8 +82,9 @@ async def summarize_binder(
     summaries_dir: Path,
     agent: Agent[AgentDeps, SummarizerResult] | None = None,
     storage: StorageProvider | None = None,
-) -> Binder:
-    """Summarize entities in the binder asynchronously.
+    deps: AgentDeps | None = None,
+) -> None:
+    """Summarize entities in the binder asynchronously in-place.
 
     Includes throttling and abstracted storage.
 
@@ -94,9 +93,7 @@ async def summarize_binder(
         summaries_dir: Directory for caching summaries.
         agent: The agent to use for summarization.
         storage: Optional storage provider.
-
-    Returns:
-        Binder: The binder with added summaries.
+        deps: Optional dependencies for the agent.
     """
     import asyncio
 
@@ -105,6 +102,12 @@ async def summarize_binder(
 
     if storage is None:
         storage = FilesystemStorage()
+
+    if deps is None:
+        deps = AgentDeps(
+            settings=get_settings(),
+            prompt_loader=load_prompt_from_assets,
+        )
 
     semaphore = asyncio.Semaphore(10)
     tasks = []
@@ -119,6 +122,7 @@ async def summarize_binder(
                 agent,
                 p,
                 storage,
+                deps,
             )
 
     for category_record in binder.categories.values():
@@ -137,5 +141,3 @@ async def summarize_binder(
         summaries = await asyncio.gather(*tasks)
         for entity, summary in zip(entity_refs, summaries, strict=True):
             entity.summary = summary
-
-    return binder
