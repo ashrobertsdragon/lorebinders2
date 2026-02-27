@@ -1,7 +1,7 @@
 """Text normalization utilities shared across refinement modules."""
 
 import re
-from typing import Any, cast
+from typing import cast
 
 from lorebinders.models import CleanableValue
 
@@ -162,20 +162,24 @@ def merge_values(v1: CleanableValue, v2: CleanableValue) -> CleanableValue:
         merged = v1.copy()
         for k, v in v2.items():
             if k in merged:
-                merged[k] = cast(Any, merge_values(merged[k], v))
+                merged[k] = cast(str | list[str], merge_values(merged[k], v))
             else:
                 merged[k] = v
         return cast(CleanableValue, merged)
     if isinstance(v1, list) and isinstance(v2, list):
         return cast(CleanableValue, list(set(v1 + v2)))
     if isinstance(v1, list):
-        if isinstance(v2, (str | int | float)):
-            new_list = list(set(cast(list[str | int | float], v1) + [v2]))
+        if isinstance(v2, (str | int | float | bool | None)):
+            new_list = list(
+                set(cast(list[str | int | float | bool | None], v1) + [v2])
+            )
             return cast(CleanableValue, new_list)
         return cast(CleanableValue, v1)
     if isinstance(v2, list):
-        if isinstance(v1, (str | int | float)):
-            new_list = list(set([v1] + cast(list[str | int | float], v2)))
+        if isinstance(v1, (str | int | float | bool | None)):
+            new_list = list(
+                set([v1] + cast(list[str | int | float | bool | None], v2))
+            )
             return cast(CleanableValue, new_list)
         return cast(CleanableValue, v2)
     return (
