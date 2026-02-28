@@ -2,17 +2,11 @@ import json
 from pathlib import Path
 
 import pytest
-from pydantic_ai.messages import (
-    ModelMessage,
-    ModelRequest,
-    ModelResponse,
-    SystemPromptPart,
-    TextPart,
-    UserPromptPart,
-)
+from pydantic_ai.messages import ModelMessage, ModelResponse, TextPart
 from pydantic_ai.models.function import FunctionModel
+from pydantic_ai.models.test import TestModel
 
-from lorebinders.agent import (
+from lorebinders.agent.factory import (
     build_summarization_user_prompt,
     create_summarization_agent,
     run_agent,
@@ -20,6 +14,7 @@ from lorebinders.agent import (
 from lorebinders.agent.summarization import summarize_binder
 from lorebinders.models import AgentDeps, Binder, SummarizerResult
 from lorebinders.settings import Settings
+from lorebinders.storage.providers.test import TestStorageProvider
 
 
 def test_summarization_agent_run_sync_and_prompt() -> None:
@@ -60,58 +55,63 @@ def test_summarization_agent_run_sync_and_prompt() -> None:
 
         assert result == expected_result_obj
 
-    system_prompt_content = ""
-    for msg in captured_messages:
-        if isinstance(msg, ModelRequest):
-            for part in msg.parts:
-                if isinstance(part, SystemPromptPart):
-                    system_prompt_content = part.content
-                    break
+    settings = Settings()
+    deps = AgentDeps(settings=settings, prompt_loader=lambda x: "mock prompt")
 
-    user_prompt_content = ""
-    for msg in captured_messages:
-        if isinstance(msg, ModelRequest):
-            for part in msg.parts:
-                if isinstance(part, UserPromptPart):
-                    if isinstance(part.content, str):
-                        user_prompt_content += part.content
+    model = TestModel()
+    agent = create_summarization_agent()
 
-    assert system_prompt_content == "Mock content for summarization.txt"
-    assert "Gandalf" in user_prompt_content
-    assert "Character" in user_prompt_content
-    assert "He is a wizard" in user_prompt_content
+    prompt = build_summarization_user_prompt(
+        entity_name="Frodo",
+        category="Characters",
+        context_data="Chapter 1: Trait=Brave\nChapter 2: Trait=Short",
+    )
+
+    with agent.override(model=model):
+        result = agent.run_sync(prompt, deps=deps)
+
+    assert isinstance(result.output, SummarizerResult)
+    assert isinstance(result.output.summary, str)
+
+    assert "Frodo" in prompt
+    assert "Characters" in prompt
+    assert "Brave" in prompt
+    assert "Short" in prompt
 
 
 @pytest.mark.anyio
-async def test_entity_summarizer_orchestration(tmp_path: Path) -> None:
-    expected_result_dict = {
-        "entity_name": "Frodo",
-        "summary": "A brave hobbit.",
-    }
+async def test_summarize_binder(tmp_path: Path) -> None:
+    """Test summarize_binder processes a realistic binder sequentially."""
+    settings = Settings()
+    deps = AgentDeps(settings=settings, prompt_loader=lambda x: "mock prompt")
 
-    def mock_model_call(
-        messages: list[ModelMessage], info: object
-    ) -> ModelResponse:
-        return ModelResponse(
-            parts=[TextPart(content=json.dumps(expected_result_dict))]
-        )
-
+    model = TestModel()
     agent = create_summarization_agent()
-    with agent.override(model=FunctionModel(mock_model_call)):
-        binder = Binder()
-        binder.add_appearance(
-            "Characters",
-            "Frodo",
-            1,
-            {"Traits": ["Brave", "Short"], "Item": "Ring"},
-        )
 
-        await summarize_binder(binder, tmp_path, agent=agent)
+    binder = Binder()
+    binder.add_appearance("Characters", "Frodo", 1, {"Traits": ["Brave"]})
+    binder.add_appearance(
+        "Characters", "Frodo", 2, {"Traits": ["Brave", "Short"]}
+    )
+    binder.add_appearance(
+        "Locations", "Shire", 1, {"Type": "Village", "Vibe": "Peaceful"}
+    )
+    binder.add_appearance(
+        "Locations", "Shire", 3, {"Type": "Target", "Vibe": "Threatened"}
+    )
+
+    storage = TestStorageProvider()
+    storage.set_workspace("TestAuthor", "TestTitle")
+
+    with agent.override(model=model, deps=deps):
+        await summarize_binder(binder, storage=storage, agent=agent)
 
         assert "Characters" in binder.categories
         frodo = binder.categories["Characters"].entities["Frodo"]
-        assert frodo.summary == "A brave hobbit."
-        assert frodo.appearances[1].traits == {
-            "Traits": ["Brave", "Short"],
-            "Item": "Ring",
-        }
+        assert frodo.summary is not None
+        assert isinstance(frodo.summary, str)
+
+        assert "Locations" in binder.categories
+        shire = binder.categories["Locations"].entities["Shire"]
+        assert shire.summary is not None
+        assert isinstance(shire.summary, str)

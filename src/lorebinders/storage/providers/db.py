@@ -2,7 +2,6 @@
 
 from collections.abc import Generator
 from pathlib import Path
-from typing import Any
 
 from sqlalchemy import JSON, String, create_engine, select
 from sqlalchemy.orm import (
@@ -13,7 +12,10 @@ from sqlalchemy.orm import (
     sessionmaker,
 )
 
+import lorebinders.storage.workspace as workspace
 from lorebinders import models
+from lorebinders.settings import get_settings
+from lorebinders.types import EntityTraits
 
 
 class Base(DeclarativeBase):
@@ -26,9 +28,9 @@ class ExtractionModel(Base):
     __tablename__ = "extractions"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    directory_path: Mapped[str] = mapped_column(String(1024), index=True)
+    workspace_id: Mapped[str] = mapped_column(String(1024), index=True)
     chapter_num: Mapped[int] = mapped_column(index=True)
-    data: Mapped[dict[str, Any]] = mapped_column(JSON)
+    data: Mapped[dict[str, list[str]]] = mapped_column(JSON)
 
 
 class ProfileModel(Base):
@@ -37,11 +39,11 @@ class ProfileModel(Base):
     __tablename__ = "profiles"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    directory_path: Mapped[str] = mapped_column(String(1024), index=True)
+    workspace_id: Mapped[str] = mapped_column(String(1024), index=True)
     chapter_num: Mapped[int] = mapped_column(index=True)
     category: Mapped[str] = mapped_column(String(255), index=True)
     name: Mapped[str] = mapped_column(String(255), index=True)
-    data: Mapped[dict[str, Any]] = mapped_column(JSON)
+    data: Mapped[EntityTraits] = mapped_column(JSON)
 
 
 class SummaryModel(Base):
@@ -50,7 +52,7 @@ class SummaryModel(Base):
     __tablename__ = "summaries"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    directory_path: Mapped[str] = mapped_column(String(1024), index=True)
+    workspace_id: Mapped[str] = mapped_column(String(1024), index=True)
     category: Mapped[str] = mapped_column(String(255), index=True)
     name: Mapped[str] = mapped_column(String(255), index=True)
     summary: Mapped[str] = mapped_column(String)
@@ -59,17 +61,22 @@ class SummaryModel(Base):
 class DBStorage:
     """SQLAlchemy-backed storage provider."""
 
-    def __init__(self, db_url: str = "sqlite:///:memory:") -> None:
+    def __init__(self, db_url: str | None = None) -> None:
         """Initialize the database storage.
 
         Args:
             db_url: The SQLAlchemy database URL. Defaults to in-memory SQLite.
+                Overrides the DB_URL environment variable.
         """
+        if not db_url:
+            db_url = get_settings().db_url
         self.engine = create_engine(db_url)
         Base.metadata.create_all(self.engine)
         self.SessionLocal = sessionmaker(
             autocommit=False, autoflush=False, bind=self.engine
         )
+        self._path: Path | None = None
+        self.workspace_id: str | None = None
 
     def _get_session(self) -> Generator[Session, None, None]:
         session = self.SessionLocal()
@@ -78,49 +85,41 @@ class DBStorage:
         finally:
             session.close()
 
-    def ensure_workspace(self, author: str, title: str) -> Path:
-        """Ensure the workspace directory exists.
+    def set_workspace(self, author: str, title: str) -> None:
+        """Set the workspace context."""
+        path = workspace.ensure_workspace(author, title)
+        self._path = path
+        self.workspace_id = str(path)
 
-        For DBStorage, we still return a Path (acting as a workspace key/ID)
-        and ensure the folder exists, just like FilesystemStorage,
-        because other components might still write separate artifacts.
+    @property
+    def path(self) -> Path:
+        """The base path of the workspace."""
+        if not self._path:
+            raise RuntimeError("Workspace not set")
+        return self._path
 
-        Returns:
-            The path to the workspace.
-        """
-        from lorebinders.storage.workspace import (
-            ensure_workspace as base_ensure,
-        )
-
-        return base_ensure(author, title)
-
-    def extraction_exists(
-        self, extractions_dir: Path, chapter_num: int
-    ) -> bool:
+    def extraction_exists(self, chapter_num: int) -> bool:
         """Check if extraction exists.
 
         Returns:
             True if it exists.
         """
-        dir_str = str(extractions_dir)
         with self.SessionLocal() as session:
             stmt = select(ExtractionModel).where(
-                ExtractionModel.directory_path == dir_str,
+                ExtractionModel.workspace_id == self.workspace_id,
                 ExtractionModel.chapter_num == chapter_num,
             )
             return session.scalars(stmt).first() is not None
 
     def save_extraction(
         self,
-        extractions_dir: Path,
         chapter_num: int,
         data: dict[str, list[str]],
     ) -> None:
         """Save extraction data."""
-        dir_str = str(extractions_dir)
         with self.SessionLocal() as session:
             stmt = select(ExtractionModel).where(
-                ExtractionModel.directory_path == dir_str,
+                ExtractionModel.workspace_id == self.workspace_id,
                 ExtractionModel.chapter_num == chapter_num,
             )
             model = session.scalars(stmt).first()
@@ -128,16 +127,14 @@ class DBStorage:
                 model.data = data
             else:
                 model = ExtractionModel(
-                    directory_path=dir_str,
+                    workspace_id=self.workspace_id,
                     chapter_num=chapter_num,
                     data=data,
                 )
                 session.add(model)
             session.commit()
 
-    def load_extraction(
-        self, extractions_dir: Path, chapter_num: int
-    ) -> dict[str, list[str]]:
+    def load_extraction(self, chapter_num: int) -> dict[str, list[str]]:
         """Load extraction data.
 
         Returns:
@@ -146,17 +143,15 @@ class DBStorage:
         Raises:
             FileNotFoundError: If the extraction does not exist.
         """
-        dir_str = str(extractions_dir)
         with self.SessionLocal() as session:
             stmt = select(ExtractionModel).where(
-                ExtractionModel.directory_path == dir_str,
+                ExtractionModel.workspace_id == self.workspace_id,
                 ExtractionModel.chapter_num == chapter_num,
             )
             model = session.scalars(stmt).first()
             if not model:
                 raise FileNotFoundError(
-                    f"Extraction for chapter {chapter_num} not found "
-                    f"in {dir_str}"
+                    f"Extraction for chapter {chapter_num} not found"
                 )
 
             return {
@@ -164,17 +159,16 @@ class DBStorage:
             }
 
     def profile_exists(
-        self, profiles_dir: Path, chapter_num: int, category: str, name: str
+        self, chapter_num: int, category: str, name: str
     ) -> bool:
         """Check if profile exists.
 
         Returns:
             True if it exists.
         """
-        dir_str = str(profiles_dir)
         with self.SessionLocal() as session:
             stmt = select(ProfileModel).where(
-                ProfileModel.directory_path == dir_str,
+                ProfileModel.workspace_id == self.workspace_id,
                 ProfileModel.chapter_num == chapter_num,
                 ProfileModel.category == category,
                 ProfileModel.name == name,
@@ -183,15 +177,13 @@ class DBStorage:
 
     def save_profile(
         self,
-        profiles_dir: Path,
         chapter_num: int,
         profile: models.EntityProfile,
     ) -> None:
         """Save profile data."""
-        dir_str = str(profiles_dir)
         with self.SessionLocal() as session:
             stmt = select(ProfileModel).where(
-                ProfileModel.directory_path == dir_str,
+                ProfileModel.workspace_id == self.workspace_id,
                 ProfileModel.chapter_num == chapter_num,
                 ProfileModel.category == profile.category,
                 ProfileModel.name == profile.name,
@@ -202,7 +194,7 @@ class DBStorage:
                 model.data = data
             else:
                 model = ProfileModel(
-                    directory_path=dir_str,
+                    workspace_id=self.workspace_id,
                     chapter_num=chapter_num,
                     category=profile.category,
                     name=profile.name,
@@ -212,7 +204,7 @@ class DBStorage:
             session.commit()
 
     def load_profile(
-        self, profiles_dir: Path, chapter_num: int, category: str, name: str
+        self, chapter_num: int, category: str, name: str
     ) -> models.EntityProfile:
         """Load profile data.
 
@@ -222,10 +214,9 @@ class DBStorage:
         Raises:
             FileNotFoundError: If the profile does not exist.
         """
-        dir_str = str(profiles_dir)
         with self.SessionLocal() as session:
             stmt = select(ProfileModel).where(
-                ProfileModel.directory_path == dir_str,
+                ProfileModel.workspace_id == self.workspace_id,
                 ProfileModel.chapter_num == chapter_num,
                 ProfileModel.category == category,
                 ProfileModel.name == name,
@@ -238,31 +229,25 @@ class DBStorage:
                 )
             return models.EntityProfile.model_validate(model.data)
 
-    def summary_exists(
-        self, summaries_dir: Path, category: str, name: str
-    ) -> bool:
+    def summary_exists(self, category: str, name: str) -> bool:
         """Check if summary exists.
 
         Returns:
             True if it exists.
         """
-        dir_str = str(summaries_dir)
         with self.SessionLocal() as session:
             stmt = select(SummaryModel).where(
-                SummaryModel.directory_path == dir_str,
+                SummaryModel.workspace_id == self.workspace_id,
                 SummaryModel.category == category,
                 SummaryModel.name == name,
             )
             return session.scalars(stmt).first() is not None
 
-    def save_summary(
-        self, summaries_dir: Path, category: str, name: str, summary: str
-    ) -> None:
+    def save_summary(self, category: str, name: str, summary: str) -> None:
         """Save summary data."""
-        dir_str = str(summaries_dir)
         with self.SessionLocal() as session:
             stmt = select(SummaryModel).where(
-                SummaryModel.directory_path == dir_str,
+                SummaryModel.workspace_id == self.workspace_id,
                 SummaryModel.category == category,
                 SummaryModel.name == name,
             )
@@ -271,7 +256,7 @@ class DBStorage:
                 model.summary = summary
             else:
                 model = SummaryModel(
-                    directory_path=dir_str,
+                    workspace_id=self.workspace_id,
                     category=category,
                     name=name,
                     summary=summary,
@@ -279,9 +264,7 @@ class DBStorage:
                 session.add(model)
             session.commit()
 
-    def load_summary(
-        self, summaries_dir: Path, category: str, name: str
-    ) -> str:
+    def load_summary(self, category: str, name: str) -> str:
         """Load summary data.
 
         Returns:
@@ -290,10 +273,9 @@ class DBStorage:
         Raises:
             FileNotFoundError: If the summary does not exist.
         """
-        dir_str = str(summaries_dir)
         with self.SessionLocal() as session:
             stmt = select(SummaryModel).where(
-                SummaryModel.directory_path == dir_str,
+                SummaryModel.workspace_id == self.workspace_id,
                 SummaryModel.category == category,
                 SummaryModel.name == name,
             )

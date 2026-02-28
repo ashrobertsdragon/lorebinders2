@@ -24,7 +24,7 @@ class Settings(BaseSettings):
     summarization_model: str = "openrouter:bytedance/seed-1.6-flash"
 
     workspace_base_path: Path = Path("work")
-    db_url: str | None = None
+    db_url: str = "sqlite:///:memory:"
 
     categories: list[str] = ["Characters", "Locations"]
     character_traits: list[str] = [

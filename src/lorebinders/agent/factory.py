@@ -1,5 +1,6 @@
 import logging
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from pydantic_ai import Agent, RunContext
 from pydantic_ai.agent import RunOutputDataT
@@ -14,7 +15,9 @@ from lorebinders.models import (
     NarratorConfig,
     SummarizerResult,
 )
-from lorebinders.settings import Settings, get_settings
+
+if TYPE_CHECKING:
+    from lorebinders.settings import Settings
 
 
 def load_prompt_from_assets(filename: str) -> str:
@@ -96,7 +99,7 @@ def run_agent(
 
 
 def create_extraction_agent(
-    settings: Settings | None = None,
+    settings: "Settings | None" = None,
 ) -> Agent[AgentDeps, ExtractionResult]:
     """Create a configured extraction agent.
 
@@ -106,7 +109,10 @@ def create_extraction_agent(
     Returns:
         A configured extraction agent.
     """
-    settings = settings or get_settings()
+    if settings is None:
+        from lorebinders.settings import get_settings
+
+        settings = get_settings()
 
     agent = create_agent(
         settings.extraction_model,
@@ -156,7 +162,7 @@ def build_extraction_user_prompt(
 
 
 def create_analysis_agent(
-    settings: Settings | None = None,
+    settings: "Settings | None" = None,
 ) -> Agent[AgentDeps, list[AnalysisResult]]:
     """Create a configured analysis agent.
 
@@ -166,7 +172,10 @@ def create_analysis_agent(
     Returns:
         A configured analysis agent.
     """
-    settings = settings or get_settings()
+    if settings is None:
+        from lorebinders.settings import get_settings
+
+        settings = get_settings()
     agent = create_agent(
         settings.analysis_model,
         deps_type=AgentDeps,
@@ -205,7 +214,7 @@ def build_analysis_user_prompt(
 
 
 def create_summarization_agent(
-    settings: Settings | None = None,
+    settings: "Settings | None" = None,
 ) -> Agent[AgentDeps, SummarizerResult]:
     """Create a configured summarization agent.
 
@@ -215,7 +224,10 @@ def create_summarization_agent(
     Returns:
         A configured summarization agent.
     """
-    settings = settings or get_settings()
+    if settings is None:
+        from lorebinders.settings import get_settings
+
+        settings = get_settings()
     agent = create_agent(
         settings.summarization_model,
         deps_type=AgentDeps,

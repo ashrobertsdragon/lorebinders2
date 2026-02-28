@@ -1,10 +1,15 @@
 """Storage package for persistence and workspace management."""
 
 from lorebinders.storage.factory import get_storage
-from lorebinders.storage.provider import FilesystemStorage, StorageProvider
+from lorebinders.storage.provider import StorageProvider
+from lorebinders.storage.providers.db import DBStorage
+from lorebinders.storage.providers.file import FilesystemStorage
+from lorebinders.storage.workspace import sanitize_filename
 
 __all__ = [
     "get_storage",
     "StorageProvider",
     "FilesystemStorage",
+    "DBStorage",
+    "sanitize_filename",
 ]

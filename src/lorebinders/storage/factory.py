@@ -3,13 +3,13 @@
 This module exposes a singleton get_storage() for the storage provider.
 """
 
-from lorebinders.storage.provider import FilesystemStorage, StorageProvider
+from lorebinders.storage.provider import StorageProvider
 
 __storage_singleton: StorageProvider | None = None
 
 
 def get_storage(
-    provider: type[StorageProvider] = FilesystemStorage,
+    provider: type[StorageProvider],
 ) -> StorageProvider:
     """Get the process-wide storage provider.
 
