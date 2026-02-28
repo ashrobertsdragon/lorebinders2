@@ -1,13 +1,11 @@
-from typing import cast
-
 import pytest
 
-from lorebinders.models import CleanableValue
 from lorebinders.refinement.normalization import (
     merge_values,
     remove_titles,
     to_singular,
 )
+from lorebinders.types import EntityTraits
 
 
 @pytest.mark.parametrize(
@@ -68,20 +66,23 @@ def test_to_singular(plural: str, expected: str) -> None:
     assert to_singular(plural) == expected
 
 
-def test_merge_values() -> None:
-    v1 = {"a": 1, "b": [2]}
-    v2 = {"b": [3], "c": 4}
-    merged_dict = cast(dict[str, CleanableValue], merge_values(v1, v2))
-    assert merged_dict["a"] == 1
-    assert 2 in cast(list[CleanableValue], merged_dict["b"])
-    assert 3 in cast(list[CleanableValue], merged_dict["b"])
-    assert merged_dict["c"] == 4
-
-    l1 = [1, 2]
-    l2 = [2, 3]
-    merged_list = cast(list[CleanableValue], merge_values(l1, l2))
-    assert set(merged_list) == {1, 2, 3}
-    assert set(cast(list[CleanableValue], merge_values(1, [2]))) == {1, 2}
-    assert set(cast(list[CleanableValue], merge_values([1], 2))) == {1, 2}
-    assert merge_values(1, 1) == 1
-    assert set(cast(list[CleanableValue], merge_values(1, 2))) == {1, 2}
+@pytest.mark.parametrize(
+    "value1, value2, expected",
+    [
+        (
+            {"a": "1", "b": ["2"]},
+            {"b": ["3"], "c": "4"},
+            {"a": "1", "b": ["2", "3"], "c": "4"},
+        ),
+        ({"a": ["1", "2"]}, {"a": ["2", "3"]}, {"a": ["1", "2", "3"]}),
+        ({"a": "1"}, {"a": ["2"]}, {"a": ["1", "2"]}),
+        ({"a": ["1"]}, {"a": "2"}, {"a": ["1", "2"]}),
+        ({"a": "1"}, {"a": "1"}, {"a": "1"}),
+        ({"a": "1"}, {"a": "2"}, {"a": ["1", "2"]}),
+    ],
+)
+def test_merge_values(
+    value1: EntityTraits, value2: EntityTraits, expected: EntityTraits
+) -> None:
+    merged_dict = merge_values(value1, value2)
+    assert merged_dict == expected

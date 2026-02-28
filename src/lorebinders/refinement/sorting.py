@@ -6,16 +6,16 @@ minimize redundant analysis calls.
 
 import logging
 
-from lorebinders.models import SortedExtractions
 from lorebinders.refinement.deduplication import (
-    _is_similar_key,
-    _prioritize_keys,
+    is_similar_key,
+    prioritize_keys,
 )
 from lorebinders.refinement.normalization import remove_titles
 from lorebinders.refinement.patterns import (
     LOCATION_SUFFIX_PATTERN,
     NARRATOR_PATTERN,
 )
+from lorebinders.types import SortedExtractions
 
 logger = logging.getLogger(__name__)
 
@@ -104,8 +104,8 @@ def _deduplicate_entity_names(names: list[str], category: str) -> list[str]:
     for name in cleaned_names:
         found_match = False
         for i, existing in enumerate(canonical_names):
-            if _is_similar_key(name, existing):
-                _, keeper = _prioritize_keys(name, existing)
+            if is_similar_key(name, existing):
+                _, keeper = prioritize_keys(name, existing)
                 canonical_names[i] = keeper
                 found_match = True
                 break
@@ -150,8 +150,8 @@ def sort_extractions(
                 existing_keys = list(aggregated[category].keys())
 
                 for existing in existing_keys:
-                    if _is_similar_key(name, existing):
-                        _, keeper = _prioritize_keys(name, existing)
+                    if is_similar_key(name, existing):
+                        _, keeper = prioritize_keys(name, existing)
 
                         if keeper == existing:
                             if (

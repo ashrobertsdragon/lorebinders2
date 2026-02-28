@@ -11,6 +11,7 @@ from lorebinders.refinement.cleaning import clean_traits
 from lorebinders.refinement.sorting import sort_extractions
 from lorebinders.storage.provider import FilesystemStorage, StorageProvider
 from lorebinders.storage.workspace import sanitize_filename
+from lorebinders.types import SortedExtractions
 
 logger = logging.getLogger(__name__)
 
@@ -162,7 +163,7 @@ async def _analyze_batch(
 
 
 async def _analyze_all_entities(
-    entities: models.SortedExtractions,
+    entities: SortedExtractions,
     book: models.Book,
     profiles_dir: Path,
     analysis_fn: Callable[

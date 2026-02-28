@@ -1,9 +1,8 @@
 """Text normalization utilities shared across refinement modules."""
 
 import re
-from typing import cast
 
-from lorebinders.models import CleanableValue
+from lorebinders.types import EntityTraits, TraitValue
 
 TITLES: frozenset[str] = frozenset(
     {
@@ -148,40 +147,38 @@ def to_singular(plural: str) -> str:
     return plural
 
 
-def merge_values(v1: CleanableValue, v2: CleanableValue) -> CleanableValue:
-    """Merge two values when keys collide during entity resolution.
+def _merge_trait_values(v1: TraitValue, v2: TraitValue) -> TraitValue:
+    """Safely merge two trait values (strings or lists of strings).
 
     Args:
-        v1: The first value to merge.
-        v2: The second value to merge.
+        v1: The first trait value.
+        v2: The second trait value.
 
     Returns:
-        The merged value.
+        The merged trait value.
     """
-    if isinstance(v1, dict) and isinstance(v2, dict):
-        merged = v1.copy()
-        for k, v in v2.items():
-            if k in merged:
-                merged[k] = cast(str | list[str], merge_values(merged[k], v))
-            else:
-                merged[k] = v
-        return cast(CleanableValue, merged)
-    if isinstance(v1, list) and isinstance(v2, list):
-        return cast(CleanableValue, list(set(v1 + v2)))
     if isinstance(v1, list):
-        if isinstance(v2, (str | int | float | bool | None)):
-            new_list = list(
-                set(cast(list[str | int | float | bool | None], v1) + [v2])
-            )
-            return cast(CleanableValue, new_list)
-        return cast(CleanableValue, v1)
+        if isinstance(v2, list):
+            return sorted(list(set(v1 + v2)))
+        return sorted(list(set(v1 + [v2])))
     if isinstance(v2, list):
-        if isinstance(v1, (str | int | float | bool | None)):
-            new_list = list(
-                set([v1] + cast(list[str | int | float | bool | None], v2))
-            )
-            return cast(CleanableValue, new_list)
-        return cast(CleanableValue, v2)
-    return (
-        cast(CleanableValue, v1) if v1 == v2 else cast(CleanableValue, [v1, v2])
-    )
+        return sorted(list(set([v1] + v2)))
+    return v1 if v1 == v2 else sorted([v1, v2])
+
+
+def merge_values(v1: EntityTraits, v2: EntityTraits) -> EntityTraits:
+    """Merge two EntityTraits dictionaries when keys collide.
+
+    Args:
+        v1: The first trait dictionary.
+        v2: The second trait dictionary.
+
+    Returns:
+        The merged trait dictionary.
+    """
+    for k, v in v2.items():
+        if k in v1:
+            v1[k] = _merge_trait_values(v1[k], v)
+        else:
+            v1[k] = v
+    return v1

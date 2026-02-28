@@ -1,13 +1,11 @@
 """Entity resolution logic for refinement using Binder models."""
 
 from itertools import combinations
-from typing import cast
 
 from lorebinders.models import (
     Binder,
     CategoryRecord,
     EntityRecord,
-    EntityTraits,
 )
 from lorebinders.refinement.normalization import (
     TITLES,
@@ -17,7 +15,7 @@ from lorebinders.refinement.normalization import (
 )
 
 
-def _is_similar_key(key1: str, key2: str) -> bool:
+def is_similar_key(key1: str, key2: str) -> bool:
     """Determine if two keys are similar.
 
     Args:
@@ -79,7 +77,7 @@ def _is_similar_key(key1: str, key2: str) -> bool:
     return destructured_match
 
 
-def _prioritize_keys(key1: str, key2: str) -> tuple[str, str]:
+def prioritize_keys(key1: str, key2: str) -> tuple[str, str]:
     """Determine which key to keep and which to merge.
 
     Args:
@@ -103,10 +101,9 @@ def _merge_entities(target: EntityRecord, source: EntityRecord) -> None:
     """Merge traits and summaries from source entity into target entity."""
     for chap_num, appearance in source.appearances.items():
         if chap_num in target.appearances:
-            merged = merge_values(
+            target.appearances[chap_num].traits = merge_values(
                 target.appearances[chap_num].traits, appearance.traits
             )
-            target.appearances[chap_num].traits = cast(EntityTraits, merged)
         else:
             target.appearances[chap_num] = appearance
 
@@ -126,8 +123,8 @@ def _resolve_category_entities(category: CategoryRecord) -> None:
         if n1 in duplicates_to_remove or n2 in duplicates_to_remove:
             continue
 
-        if _is_similar_key(n1, n2):
-            to_merge, to_keep = _prioritize_keys(n1, n2)
+        if is_similar_key(n1, n2):
+            to_merge, to_keep = prioritize_keys(n1, n2)
 
             _merge_entities(
                 category.entities[to_keep], category.entities[to_merge]

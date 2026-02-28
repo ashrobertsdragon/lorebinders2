@@ -3,9 +3,7 @@
 This module exposes a singleton get_storage() for the storage provider.
 """
 
-from __future__ import annotations
-
-from .provider import FilesystemStorage, StorageProvider
+from lorebinders.storage.provider import FilesystemStorage, StorageProvider
 
 __storage_singleton: StorageProvider | None = None
 

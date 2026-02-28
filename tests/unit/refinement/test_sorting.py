@@ -2,7 +2,7 @@ import pytest
 
 from lorebinders.refinement.sorting import (
     _deduplicate_entity_names,
-    _is_similar_key,
+    is_similar_key,
     sort_extractions,
 )
 
@@ -31,7 +31,7 @@ from lorebinders.refinement.sorting import (
     ],
 )
 def test_is_similar_key_basic(key1: str, key2: str, expected: bool) -> None:
-    assert _is_similar_key(key1, key2) == expected
+    assert is_similar_key(key1, key2) == expected
 
 
 @pytest.mark.parametrize(
@@ -50,7 +50,7 @@ def test_is_similar_key_basic(key1: str, key2: str, expected: bool) -> None:
     ],
 )
 def test_is_similar_key_complex_matches(key1: str, key2: str) -> None:
-    assert _is_similar_key(key1, key2) is True
+    assert is_similar_key(key1, key2) is True
 
 
 @pytest.mark.parametrize(

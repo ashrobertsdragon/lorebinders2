@@ -7,8 +7,8 @@ from lorebinders.models import (
     EntityRecord,
 )
 from lorebinders.refinement.deduplication import (
-    _prioritize_keys,
     _resolve_category_entities,
+    prioritize_keys,
     resolve_binder,
 )
 
@@ -31,7 +31,7 @@ from lorebinders.refinement.deduplication import (
 def test_prioritize_keys(
     key1: str, key2: str, expected_keep: str, expected_merge: str
 ) -> None:
-    keep, merge = _prioritize_keys(key1, key2)
+    keep, merge = prioritize_keys(key1, key2)
     assert keep == expected_keep
     assert merge == expected_merge
 

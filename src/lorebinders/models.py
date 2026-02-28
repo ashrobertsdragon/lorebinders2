@@ -5,6 +5,8 @@ from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, Field
 
+from lorebinders.types import EntityTraits
+
 if TYPE_CHECKING:
     from lorebinders.settings import Settings
 
@@ -52,10 +54,6 @@ class Book(BaseModel):
     chapters: list[Chapter] = Field(default_factory=list)
 
 
-EntityTraits = dict[str, str | list[str]]
-CleanableValue = str | int | float | bool | None | EntityTraits | list[str]
-
-
 class EntityProfile(BaseModel):
     """Structured output for an entity analysis."""
 
@@ -74,9 +72,6 @@ class CategoryTarget(BaseModel):
     name: str
     traits: list[str] | None = None
     entities: list[str]
-
-
-SortedExtractions = dict[str, dict[str, list[int]]]
 
 
 class EntityAppearance(BaseModel):
