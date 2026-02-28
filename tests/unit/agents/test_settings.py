@@ -1,3 +1,5 @@
+import pytest
+
 from lorebinders.agent.settings import settings_config
 
 
@@ -13,11 +15,12 @@ def test_settings_config_anthropic() -> None:
     assert settings["anthropic_thinking"] == {"type": "disabled"}
 
 
-def test_settings_config_google() -> None:
-    for provider in ["google-gla", "google-vertex"]:
-        settings = settings_config(provider)
+@pytest.mark.filterwarnings("ignore::DeprecationWarning")
+@pytest.mark.parametrize("provider", ["google-gla", "google-vertex"])
+def test_settings_config_google(provider: str) -> None:
+    settings = settings_config(provider)
 
-        assert settings["google_thinking_config"] == {"include_thoughts": False}
+    assert settings["google_thinking_config"] == {"include_thoughts": False}
 
 
 def test_settings_config_groq() -> None:
