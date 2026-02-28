@@ -92,3 +92,7 @@ class StorageProvider(Protocol):
             The summary text.
         """
         ...
+
+    def save_book(self, title: str, text: str) -> None:
+        """Save the book text."""
+        ...

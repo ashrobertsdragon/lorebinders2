@@ -14,16 +14,28 @@ class TestStorageProvider:
         self.extractions: dict[int, dict[str, list[str]]] = {}
         self.profiles: dict[tuple[int, str, str], models.EntityProfile] = {}
         self.summaries: dict[tuple[str, str], str] = {}
+        self.book_text: str | None = None
 
     @property
     def path(self) -> Path:
-        """The base path of the workspace."""
+        """The base path of the workspace.
+
+        Raises:
+            RuntimeError: If the workspace is not set.
+        """
         if not self._path:
             raise RuntimeError("Workspace not set")
         return self._path
 
     def extraction_exists(self, chapter_num: int) -> bool:
-        """Check if extraction exists."""
+        """Check if extraction exists.
+
+        Args:
+            chapter_num (int): The chapter number of the extraction.
+
+        Returns:
+            bool: True if the extraction exists, False otherwise.
+        """
         return chapter_num in self.extractions
 
     def save_extraction(
@@ -31,11 +43,26 @@ class TestStorageProvider:
         chapter_num: int,
         data: dict[str, list[str]],
     ) -> None:
-        """Save extraction data."""
+        """Save extraction data.
+
+        Args:
+            chapter_num (int): The chapter number of the extraction.
+            data (dict[str, list[str]]): The extraction data.
+        """
         self.extractions[chapter_num] = data
 
     def load_extraction(self, chapter_num: int) -> dict[str, list[str]]:
-        """Load extraction data."""
+        """Load extraction data.
+
+        Args:
+            chapter_num (int): The chapter number of the extraction.
+
+        Returns:
+            dict[str, list[str]]: The extraction data.
+
+        Raises:
+            FileNotFoundError: If the extraction does not exist.
+        """
         if chapter_num not in self.extractions:
             raise FileNotFoundError(
                 f"Extraction for chapter {chapter_num} not found"
@@ -45,7 +72,16 @@ class TestStorageProvider:
     def profile_exists(
         self, chapter_num: int, category: str, name: str
     ) -> bool:
-        """Check if profile exists."""
+        """Check if profile exists.
+
+        Args:
+            chapter_num (int): The chapter number of the profile.
+            category (str): The category of the profile.
+            name (str): The name of the profile.
+
+        Returns:
+            bool: True if the profile exists, False otherwise.
+        """
         return (chapter_num, category, name) in self.profiles
 
     def save_profile(
@@ -59,14 +95,34 @@ class TestStorageProvider:
     def load_profile(
         self, chapter_num: int, category: str, name: str
     ) -> models.EntityProfile:
-        """Load profile data."""
+        """Load profile data.
+
+        Args:
+            chapter_num (int): The chapter number of the profile.
+            category (str): The category of the profile.
+            name (str): The name of the profile.
+
+        Returns:
+            models.EntityProfile: The profile data.
+
+        Raises:
+            FileNotFoundError: If the profile does not exist.
+        """
         key = (chapter_num, category, name)
         if key not in self.profiles:
             raise FileNotFoundError(f"Profile {name} not found")
         return self.profiles[key]
 
     def summary_exists(self, category: str, name: str) -> bool:
-        """Check if summary exists."""
+        """Check if summary exists.
+
+        Args:
+            category (str): The category of the summary.
+            name (str): The name of the summary.
+
+        Returns:
+            bool: True if the summary exists, False otherwise.
+        """
         return (category, name) in self.summaries
 
     def save_summary(self, category: str, name: str, summary: str) -> None:
@@ -74,8 +130,23 @@ class TestStorageProvider:
         self.summaries[(category, name)] = summary
 
     def load_summary(self, category: str, name: str) -> str:
-        """Load summary data."""
+        """Load summary data.
+
+        Args:
+            category (str): The category of the summary.
+            name (str): The name of the summary.
+
+        Returns:
+            str: The summary data.
+
+        Raises:
+            FileNotFoundError: If the summary does not exist.
+        """
         key = (category, name)
         if key not in self.summaries:
             raise FileNotFoundError(f"Summary {name} not found")
         return self.summaries[key]
+
+    def save_book(self, title: str, text: str) -> None:
+        """Save the book text."""
+        self.book_text = text

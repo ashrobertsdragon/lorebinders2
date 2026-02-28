@@ -1,233 +1,67 @@
-import asyncio
 import logging
-from collections.abc import Awaitable, Callable
+from collections.abc import Callable
 from pathlib import Path
 
 from pydantic_ai import Agent
 
 from lorebinders import models
+from lorebinders.agent import (
+    create_analysis_agent,
+    create_extraction_agent,
+    create_summarization_agent,
+    load_prompt_from_assets,
+)
+from lorebinders.agent.analysis import analyze_entities
+from lorebinders.agent.extraction import extract_book
 from lorebinders.agent.summarization import summarize_binder
 from lorebinders.refinement.cleaning import clean_traits
+from lorebinders.refinement.conversion import convert_to_text, ingest
 from lorebinders.refinement.sorting import sort_extractions
+from lorebinders.reporting.pdf import generate_pdf_report
+from lorebinders.settings import Settings, get_settings
 from lorebinders.storage import (
     FilesystemStorage,
     StorageProvider,
     get_storage,
     sanitize_filename,
 )
-from lorebinders.types import SortedExtractions
+from lorebinders.storage.workspace import ensure_workspace
 
 logger = logging.getLogger(__name__)
 
 
-async def _extract_chapter(
-    chapter: models.Chapter,
-    extraction_fn: Callable[[models.Chapter], Awaitable[dict[str, list[str]]]],
-    idx: int,
-    total: int,
-    semaphore: asyncio.Semaphore,
-    storage: StorageProvider,
-    progress: Callable[[models.ProgressUpdate], None] | None = None,
-) -> tuple[int, dict[str, list[str]]]:
-    """Extract entities from a chapter.
-
-    Uses throttling and abstracted storage.
+def merge_traits(
+    settings: Settings, config: models.RunConfiguration
+) -> dict[str, list[str]]:
+    """Merge default settings with run configuration to get effective traits.
 
     Args:
-        chapter: The chapter to extract from.
-        extraction_fn: The function to use for extraction.
-        idx: The current chapter index.
-        total: The total number of chapters.
-        semaphore: Semaphore for concurrency control.
-        storage: The storage provider for persistence.
-        progress: Optional callback for progress updates.
+        settings: Application settings with defaults.
+        config: Run configuration with overrides/extensions.
 
     Returns:
-        A tuple of (chapter_number, extraction_data).
+        A dictionary mapping category names to their list of traits.
     """
-    if progress:
-        progress(
-            models.ProgressUpdate(
-                stage="extraction",
-                current=idx,
-                total=total,
-                message=f"Extracting chapter {chapter.number}: {chapter.title}",
-            )
-        )
+    effective_traits: dict[str, list[str]] = {
+        "Characters": settings.character_traits.copy(),
+        "Locations": settings.location_traits.copy(),
+    }
 
-    if storage.extraction_exists(chapter.number):
-        logger.info(f"Loading cached extraction for chapter {chapter.number}")
-        result = storage.load_extraction(chapter.number)
-    else:
-        async with semaphore:
-            result = await extraction_fn(chapter)
-            storage.save_extraction(chapter.number, result)
+    for category, traits in config.custom_traits.items():
+        if category not in effective_traits:
+            effective_traits[category] = []
 
-    return chapter.number, result
+        current_set = set(effective_traits[category])
+        for trait in traits:
+            if trait not in current_set:
+                effective_traits[category].append(trait)
+                current_set.add(trait)
 
+    for category in config.custom_categories:
+        if category not in effective_traits:
+            effective_traits[category] = []
 
-async def _extract_all_chapters(
-    book: models.Book,
-    extraction_fn: Callable[[models.Chapter], Awaitable[dict[str, list[str]]]],
-    storage: StorageProvider,
-    progress: Callable[[models.ProgressUpdate], None] | None = None,
-) -> dict[int, dict[str, list[str]]]:
-    """Extract entities from all chapters in parallel with throttling.
-
-    Args:
-        book: The book to extract from.
-        extraction_fn: The function to use for extraction.
-        storage: The storage provider for persistence.
-        progress: Optional callback for progress updates.
-
-    Returns:
-        A dictionary mapping chapter numbers to extraction data.
-    """
-    total_chapters = len(book.chapters)
-    logger.info(f"Extracting entities from {total_chapters} chapters")
-
-    semaphore = asyncio.Semaphore(10)
-
-    tasks = [
-        _extract_chapter(
-            chapter,
-            extraction_fn,
-            idx,
-            total_chapters,
-            semaphore,
-            storage,
-            progress,
-        )
-        for idx, chapter in enumerate(book.chapters, 1)
-    ]
-
-    results = await asyncio.gather(*tasks)
-    return dict(results)
-
-
-async def _analyze_batch(
-    target_categories: list[models.CategoryTarget],
-    chapter: models.Chapter,
-    analysis_fn: Callable[
-        [list[models.CategoryTarget], models.Chapter],
-        Awaitable[list[models.EntityProfile]],
-    ],
-    storage: StorageProvider,
-) -> list[models.EntityProfile]:
-    """Analyze a batch of entities synchronously with abstracted storage.
-
-    Args:
-        target_categories: The categories and entities to analyze.
-        chapter: The chapter context for analysis.
-        analysis_fn: The function to use for analysis.
-        storage: The storage provider for persistence.
-
-    Returns:
-        A list of analyzed entity profiles.
-    """
-    profiles: list[models.EntityProfile] = []
-    to_analyze: list[models.CategoryTarget] = []
-
-    for cat_target in target_categories:
-        category = cat_target.name
-        entities_to_run = []
-        for name in cat_target.entities:
-            if storage.profile_exists(chapter.number, category, name):
-                profiles.append(
-                    storage.load_profile(chapter.number, category, name)
-                )
-            else:
-                entities_to_run.append(name)
-
-        if entities_to_run:
-            to_analyze.append(
-                models.CategoryTarget(name=category, entities=entities_to_run)
-            )
-
-    if not to_analyze:
-        return profiles
-
-    analyzed_profiles = await analysis_fn(to_analyze, chapter)
-    for p in analyzed_profiles:
-        storage.save_profile(chapter.number, p)
-        profiles.append(p)
-
-    return profiles
-
-
-async def _analyze_all_entities(
-    entities: SortedExtractions,
-    book: models.Book,
-    analysis_fn: Callable[
-        [list[models.CategoryTarget], models.Chapter],
-        Awaitable[list[models.EntityProfile]],
-    ],
-    storage: StorageProvider,
-    progress: Callable[[models.ProgressUpdate], None] | None = None,
-) -> list[models.EntityProfile]:
-    """Analyze all entities sequentially with abstracted storage.
-
-    Args:
-        entities: The sorted extractions to analyze.
-        book: The book context.
-        analysis_fn: The function to use for analysis.
-        storage: The storage provider for persistence.
-        progress: Optional callback for progress updates.
-
-    Returns:
-        A list of all analyzed entity profiles.
-    """
-    chapter_map = {ch.number: ch for ch in book.chapters}
-    chapter_entities: dict[int, dict[str, list[str]]] = {}
-
-    for category, entity_chapters in entities.items():
-        for entity_name, chapters in entity_chapters.items():
-            for chapter_num in chapters:
-                if chapter_num not in chapter_entities:
-                    chapter_entities[chapter_num] = {}
-                if category not in chapter_entities[chapter_num]:
-                    chapter_entities[chapter_num][category] = []
-                chapter_entities[chapter_num][category].append(entity_name)
-
-    profiles = []
-    batch_tasks = []
-
-    for chapter_num, cat_map in chapter_entities.items():
-        chapter = chapter_map.get(chapter_num)
-        if not chapter:
-            continue
-
-        for category, names in cat_map.items():
-            batch_targets = [
-                models.CategoryTarget(name=category, entities=names)
-            ]
-            batch_tasks.append((batch_targets, chapter))
-
-    total_batches = len(batch_tasks)
-    logger.info(
-        f"Analyzing {total_batches} entity batches "
-        f"across {len(chapter_entities)} chapters"
-    )
-
-    for idx, (batch, chapter) in enumerate(batch_tasks, 1):
-        if progress:
-            progress(
-                models.ProgressUpdate(
-                    stage="analysis",
-                    current=idx,
-                    total=total_batches,
-                    message=(
-                        f"Analyzing batch {idx}/{total_batches} "
-                        f"(Chapter {chapter.number})"
-                    ),
-                )
-            )
-        batch_profiles = await _analyze_batch(
-            batch, chapter, analysis_fn, storage
-        )
-        profiles.extend(batch_profiles)
-
-    return profiles
+    return effective_traits
 
 
 def _aggregate_to_binder(
@@ -255,44 +89,55 @@ def _aggregate_to_binder(
 
 async def build_binder(
     config: models.RunConfiguration,
-    ingestion: Callable[[Path, Path], models.Book],
-    extraction: Callable[[models.Chapter], Awaitable[dict[str, list[str]]]],
-    analysis: Callable[
-        [list[models.CategoryTarget], models.Chapter],
-        Awaitable[list[models.EntityProfile]],
-    ],
-    reporting: Callable[[models.Binder, Path], None],
+    progress: Callable[[models.ProgressUpdate], None] | None = None,
+    extraction_agent: Agent[models.AgentDeps, models.ExtractionResult]
+    | None = None,
+    analysis_agent: Agent[models.AgentDeps, list[models.AnalysisResult]]
+    | None = None,
     summarization_agent: Agent[models.AgentDeps, models.SummarizerResult]
     | None = None,
-    progress: Callable[[models.ProgressUpdate], None] | None = None,
     provider: type[StorageProvider] = FilesystemStorage,
-) -> None:
+) -> Path:
     """Execute the LoreBinders build pipeline.
 
     Args:
         config: The run configuration.
-        ingestion: The function to use for ingestion.
-        extraction: The function to use for extraction.
-        analysis: The function to use for analysis.
-        reporting: The function to use for reporting.
-        summarization_agent: Optional agent for summarization.
         progress: Optional callback for progress updates.
-        provider: Optional storage provider.
+        extraction_agent: Optional agent for extraction.
+        analysis_agent: Optional agent for analysis.
+        summarization_agent: Optional agent for summarization.
+        provider: Optional storage provider class.
+
+    Returns:
+        Path: The path to the generated PDF.
     """
+    settings = get_settings()
+    deps = models.AgentDeps(
+        settings=settings, prompt_loader=load_prompt_from_assets
+    )
+
+    ext_agent = extraction_agent or create_extraction_agent(settings)
+    ana_agent = analysis_agent or create_analysis_agent(settings)
+    sum_agent = summarization_agent or create_summarization_agent(settings)
+
+    effective_traits = merge_traits(settings, config)
+    all_categories = list(effective_traits.keys())
+
     storage = get_storage(provider)
 
     logger.info(
         f"Starting binder build for {config.book_title} by {config.author_name}"
     )
     storage.set_workspace(config.author_name, config.book_title)
-    output_dir = storage.path
 
     logger.debug("Ingesting book...")
-    book = ingestion(config.book_path, output_dir)
+    book_text = convert_to_text(config.book_path)
+    storage.save_book(config.book_title, book_text)
+    book = ingest(book_text, config.book_path.stem)
 
     logger.debug("Starting extraction phase...")
-    raw_extractions = await _extract_all_chapters(
-        book, extraction, storage, progress
+    raw_extractions = await extract_book(
+        book, ext_agent, deps, all_categories, config, storage, progress
     )
 
     logger.debug("Starting early refinement...")
@@ -302,10 +147,12 @@ async def build_binder(
     sorted_extractions = sort_extractions(raw_extractions, narrator_name)
 
     logger.debug("Starting analysis phase...")
-    profiles = await _analyze_all_entities(
+    profiles = await analyze_entities(
         sorted_extractions,
         book,
-        analysis,
+        ana_agent,
+        deps,
+        effective_traits,
         storage,
         progress=progress,
     )
@@ -314,10 +161,13 @@ async def build_binder(
     binder = _aggregate_to_binder(profiles)
 
     logger.debug("Starting summarization phase...")
-    await summarize_binder(binder, storage, summarization_agent)
+    await summarize_binder(binder, storage, sum_agent, deps)
 
     safe_title = sanitize_filename(config.book_title)
+    output_dir = ensure_workspace(config.author_name, config.book_title)
     output_file = output_dir / f"{safe_title}_story_bible.pdf"
     logger.debug(f"Generating report to {output_file}...")
-    reporting(binder, output_file)
+    generate_pdf_report(binder, output_file)
     logger.debug("Report generation complete.")
+
+    return output_file

@@ -22,6 +22,19 @@ class Base(DeclarativeBase):
     """Base class for SQLAlchemy models."""
 
 
+class BookModel(Base):
+    """SQLAlchemy model for books."""
+
+    __tablename__ = "books"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    workspace_id: Mapped[str] = mapped_column(
+        String(1024), index=True, unique=True
+    )
+    title: Mapped[str] = mapped_column(String(255))
+    text: Mapped[str] = mapped_column(String)
+
+
 class ExtractionModel(Base):
     """SQLAlchemy model for extractions."""
 
@@ -93,7 +106,11 @@ class DBStorage:
 
     @property
     def path(self) -> Path:
-        """The base path of the workspace."""
+        """The base path of the workspace.
+
+        Raises:
+            RuntimeError: If the workspace is not set.
+        """
         if not self._path:
             raise RuntimeError("Workspace not set")
         return self._path
@@ -285,3 +302,22 @@ class DBStorage:
                     f"Summary for '{name}' ({category}) not found"
                 )
             return model.summary
+
+    def save_book(self, title: str, text: str) -> None:
+        """Save the book text."""
+        with self.SessionLocal() as session:
+            stmt = select(BookModel).where(
+                BookModel.workspace_id == self.workspace_id
+            )
+            model = session.scalars(stmt).first()
+            if model:
+                model.title = title
+                model.text = text
+            else:
+                model = BookModel(
+                    workspace_id=self.workspace_id,
+                    title=title,
+                    text=text,
+                )
+                session.add(model)
+            session.commit()

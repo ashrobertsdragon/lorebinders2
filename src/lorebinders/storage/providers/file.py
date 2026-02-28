@@ -40,7 +40,11 @@ class FilesystemStorage:
 
     @property
     def path(self) -> Path:
-        """The base path of the workspace."""
+        """The base path of the workspace.
+
+        Raises:
+            RuntimeError: If the workspace is not set.
+        """
         if not self._path:
             raise RuntimeError("Workspace not set. Call set_workspace first.")
         return self._path
@@ -66,7 +70,14 @@ class FilesystemStorage:
         logger.debug(f"Saved extraction for chapter {chapter_num}")
 
     def load_extraction(self, chapter_num: int) -> dict[str, list[str]]:
-        """Load extraction data."""
+        """Load extraction data.
+
+        Args:
+            chapter_num (int): The chapter number of the extraction.
+
+        Returns:
+            dict[str, list[str]]: The extraction data.
+        """
         path = _get_extraction_path(self.extractions_dir, chapter_num)
         with path.open(encoding="utf-8") as f:
             logger.debug(f"Loaded extraction for chapter {chapter_num}")
@@ -75,7 +86,16 @@ class FilesystemStorage:
     def profile_exists(
         self, chapter_num: int, category: str, name: str
     ) -> bool:
-        """Check if profile exists."""
+        """Check if profile exists.
+
+        Args:
+            chapter_num (int): The chapter number of the profile.
+            category (str): The category of the profile.
+            name (str): The name of the profile.
+
+        Returns:
+            bool: True if the profile exists, False otherwise.
+        """
         return _get_profile_path(
             self.profiles_dir, chapter_num, category, name
         ).exists()
@@ -85,7 +105,12 @@ class FilesystemStorage:
         chapter_num: int,
         profile: models.EntityProfile,
     ) -> None:
-        """Save profile data."""
+        """Save profile data.
+
+        Args:
+            chapter_num (int): The chapter number of the profile.
+            profile (models.EntityProfile): The profile data.
+        """
         path = _get_profile_path(
             self.profiles_dir, chapter_num, profile.category, profile.name
         )
@@ -97,18 +122,41 @@ class FilesystemStorage:
     def load_profile(
         self, chapter_num: int, category: str, name: str
     ) -> models.EntityProfile:
-        """Load profile data."""
+        """Load profile data.
+
+        Args:
+            chapter_num (int): The chapter number of the profile.
+            category (str): The category of the profile.
+            name (str): The name of the profile.
+
+        Returns:
+            models.EntityProfile: The profile data.
+        """
         path = _get_profile_path(self.profiles_dir, chapter_num, category, name)
         with path.open(encoding="utf-8") as f:
             content = f.read()
             return models.EntityProfile.model_validate_json(content)
 
     def summary_exists(self, category: str, name: str) -> bool:
-        """Check if summary exists."""
+        """Check if summary exists.
+
+        Args:
+            category (str): The category of the summary.
+            name (str): The name of the summary.
+
+        Returns:
+            bool: True if the summary exists, False otherwise.
+        """
         return _get_summary_path(self.summaries_dir, category, name).exists()
 
     def save_summary(self, category: str, name: str, summary: str) -> None:
-        """Save summary data."""
+        """Save summary data.
+
+        Args:
+            category (str): The category of the summary.
+            name (str): The name of the summary.
+            summary (str): The summary data.
+        """
         path = _get_summary_path(self.summaries_dir, category, name)
         path.parent.mkdir(parents=True, exist_ok=True)
         with path.open(mode="w", encoding="utf-8") as f:
@@ -116,8 +164,25 @@ class FilesystemStorage:
         logger.debug(f"Saved summary: {category}/{name}")
 
     def load_summary(self, category: str, name: str) -> str:
-        """Load summary data."""
+        """Load summary data.
+
+        Args:
+            category (str): The category of the summary.
+            name (str): The name of the summary.
+
+        Returns:
+            str: The summary data.
+        """
         path = _get_summary_path(self.summaries_dir, category, name)
         with path.open(encoding="utf-8") as f:
             data = json.load(f)
             return data["summary"]
+
+    def save_book(self, title: str, text: str) -> None:
+        """Save the book text."""
+        safe_title = "".join(c if c.isalnum() else "_" for c in title)
+        path = self.path / f"{safe_title}.txt"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with path.open(mode="w", encoding="utf-8") as f:
+            f.write(text)
+        logger.debug(f"Saved book: {title}")

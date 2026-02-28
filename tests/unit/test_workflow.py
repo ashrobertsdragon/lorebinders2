@@ -1,20 +1,14 @@
 """Unit tests for the workflow module."""
 
-import json
 import os
 from pathlib import Path
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from pydantic_ai.messages import ModelMessage, ModelResponse, TextPart
-from pydantic_ai.models.function import FunctionModel
 
 from lorebinders import models
-from lorebinders.agent import create_summarization_agent
-from lorebinders.storage.providers.test import TestStorageProvider
 from lorebinders.workflow import (
     _aggregate_to_binder,
-    _analyze_all_entities,
-    _extract_all_chapters,
     build_binder,
 )
 
@@ -50,14 +44,7 @@ def run_config(book_file: Path) -> models.RunConfiguration:
     )
 
 
-@pytest.fixture
-def summarization_agent():
-    """Fixture providing a summarization agent."""
-    return create_summarization_agent()
-
-
-def _fake_ingest(path: Path, output: Path) -> models.Book:
-    """Fake ingestion function for testing."""
+def _make_fake_book() -> models.Book:
     return models.Book(
         title="Test Book",
         author="Test Author",
@@ -65,73 +52,6 @@ def _fake_ingest(path: Path, output: Path) -> models.Book:
             models.Chapter(number=1, title="Ch1", content="Alice content")
         ],
     )
-
-
-async def _fake_extract(ctx: models.Chapter) -> dict[str, list[str]]:
-    """Fake extraction function for testing."""
-    return {"Characters": ["Alice"]}
-
-
-async def _fake_analyze(
-    targets: list[models.CategoryTarget], ctx: models.Chapter
-) -> list[models.EntityProfile]:
-    """Fake analysis function for testing."""
-    profiles = []
-    for cat in targets:
-        for entity_name in cat.entities:
-            profiles.append(
-                models.EntityProfile(
-                    name=entity_name,
-                    category=cat.name,
-                    chapter_number=ctx.number,
-                    traits={"Role": "Hero"},
-                )
-            )
-    return profiles
-
-
-def _mock_summarize(
-    messages: list[ModelMessage], info: object
-) -> ModelResponse:
-    """Mock summarization function returning Alice summary."""
-    return ModelResponse(
-        parts=[
-            TextPart(
-                content=json.dumps(
-                    {
-                        "entity_name": "Alice",
-                        "summary": "A test character.",
-                    }
-                )
-            )
-        ]
-    )
-
-
-@pytest.mark.anyio
-async def test_extract_all_chapters_calls_extraction_per_chapter(
-    tmp_path: Path,
-) -> None:
-    """Test that extraction is called for each chapter."""
-    chapters = [
-        models.Chapter(number=1, title="Ch1", content="Content 1"),
-        models.Chapter(number=2, title="Ch2", content="Content 2"),
-    ]
-    book = models.Book(title="Test", author="Test", chapters=chapters)
-
-    extract_calls = []
-
-    async def fake_extract(ch: models.Chapter) -> dict[str, list[str]]:
-        extract_calls.append(ch.number)
-        return {"Characters": [f"Char{ch.number}"]}
-
-    storage = TestStorageProvider()
-    storage.set_workspace("test_author", "test_title")
-    result = await _extract_all_chapters(book, fake_extract, storage)
-
-    assert sorted(extract_calls) == [1, 2]
-    assert 1 in result
-    assert 2 in result
 
 
 def test_aggregate_to_binder_structure() -> None:
@@ -160,72 +80,65 @@ def test_aggregate_to_binder_structure() -> None:
 
 
 @pytest.mark.anyio
-async def test_analyze_all_entities_processes_each_chapter(
-    temp_workspace: Path,
-) -> None:
-    """Test that all entities are analyzed per chapter."""
-    chapters = [
-        models.Chapter(number=1, title="Ch1", content="Content 1"),
-        models.Chapter(number=2, title="Ch2", content="Content 2"),
-    ]
-    book = models.Book(title="Test", author="Test", chapters=chapters)
-
-    entities = {"Characters": {"Alice": [1, 2]}}
-
-    async def fake_analyze_batch(
-        targets: list[models.CategoryTarget], ctx: models.Chapter
-    ) -> list[models.EntityProfile]:
-        profiles = []
-        for cat in targets:
-            for entity_name in cat.entities:
-                profiles.append(
-                    models.EntityProfile(
-                        name=entity_name,
-                        category=cat.name,
-                        chapter_number=ctx.number,
-                        traits={"Found": "Yes"},
-                    )
-                )
-        return profiles
-
-    storage = TestStorageProvider()
-    storage.set_workspace("test_author", "test_title")
-    profiles = await _analyze_all_entities(
-        entities, book, fake_analyze_batch, storage
-    )
-
-    assert len(profiles) == 2
-    assert {p.chapter_number for p in profiles} == {1, 2}
-
-
-@pytest.mark.anyio
 async def test_build_binder_orchestration(
     temp_workspace: Path,
     run_config: models.RunConfiguration,
-    summarization_agent,
 ) -> None:
-    """Test end-to-end binder build orchestration."""
-    report_path = None
-
-    def fake_report(binder: models.Binder, path: Path) -> None:
-        nonlocal report_path
-        report_path = path
-        path.write_text("PDF Content")
-
-    with summarization_agent.override(model=FunctionModel(_mock_summarize)):
-        await build_binder(
-            run_config,
-            _fake_ingest,
-            _fake_extract,
-            _fake_analyze,
-            fake_report,
-            summarization_agent,
+    """Test end-to-end binder build orchestration with patched collaborators."""
+    fake_book = _make_fake_book()
+    fake_profiles = [
+        models.EntityProfile(
+            name="Alice",
+            category="Characters",
+            chapter_number=1,
+            traits={"Role": "Hero"},
         )
+    ]
 
-    author_dir = temp_workspace / "Test_Author" / "Test_Book"
-    assert author_dir.exists()
-    assert (author_dir / "profiles").exists()
-    assert (author_dir / "profiles" / "ch1_Characters_Alice.json").exists()
+    fake_storage = MagicMock()
+    fake_storage.extraction_exists.return_value = False
+    fake_storage.profile_exists.return_value = False
 
-    assert report_path == author_dir / "Test_Book_story_bible.pdf"
-    assert report_path.exists()
+    with (
+        patch(
+            "lorebinders.workflow.convert_to_text",
+            return_value="Chapter 1\nAlice content",
+        ) as mock_convert,
+        patch(
+            "lorebinders.workflow.ingest", return_value=fake_book
+        ) as mock_ingest,
+        patch(
+            "lorebinders.workflow.extract_book",
+            new_callable=AsyncMock,
+            return_value={1: {"Characters": ["Alice"]}},
+        ),
+        patch(
+            "lorebinders.workflow.analyze_entities",
+            new_callable=AsyncMock,
+            return_value=fake_profiles,
+        ),
+        patch(
+            "lorebinders.workflow.summarize_binder",
+            new_callable=AsyncMock,
+        ),
+        patch("lorebinders.workflow.generate_pdf_report") as mock_report,
+        patch("lorebinders.workflow.get_storage", return_value=fake_storage),
+        patch(
+            "lorebinders.workflow.ensure_workspace",
+            return_value=temp_workspace / "Test_Author" / "Test_Book",
+        ),
+    ):
+        result = await build_binder(run_config)
+
+    mock_convert.assert_called_once_with(run_config.book_path)
+    mock_ingest.assert_called_once_with(
+        "Chapter 1\nAlice content", run_config.book_path.stem
+    )
+    mock_report.assert_called_once()
+    assert (
+        result
+        == temp_workspace
+        / "Test_Author"
+        / "Test_Book"
+        / "Test_Book_story_bible.pdf"
+    )

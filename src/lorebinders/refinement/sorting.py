@@ -5,6 +5,7 @@ minimize redundant analysis calls.
 """
 
 import logging
+from collections import defaultdict
 
 from lorebinders.refinement.deduplication import (
     is_similar_key,
@@ -115,6 +116,39 @@ def _deduplicate_entity_names(names: list[str], category: str) -> list[str]:
     return list(set(canonical_names))
 
 
+def _merge_entity(
+    name: str,
+    chapter_num: int,
+    category_data: dict[str, list[int]],
+) -> None:
+    """Merge an entity name into existing category data.
+
+    Args:
+        name: The entity name to merge.
+        chapter_num: The current chapter number.
+        category_data: The existing category tracking map.
+    """
+    for existing in list(category_data.keys()):
+        if not is_similar_key(name, existing):
+            continue
+
+        _, keeper = prioritize_keys(name, existing)
+
+        if keeper == existing:
+            if chapter_num not in category_data[existing]:
+                category_data[existing].append(chapter_num)
+        else:
+            logger.debug(f"Merging '{existing}' into '{name}'")
+            chapters = category_data.pop(existing)
+            if chapter_num not in chapters:
+                chapters.append(chapter_num)
+            category_data[name] = chapters
+
+        return
+
+    category_data[name] = [chapter_num]
+
+
 def sort_extractions(
     raw_extractions: dict[int, dict[str, list[str]]],
     narrator_name: str | None = None,
@@ -131,7 +165,7 @@ def sort_extractions(
     Returns:
         SortedExtractions: Map of Category -> EntityName -> list[ChapterNumbers]
     """
-    aggregated: SortedExtractions = {}
+    aggregated: SortedExtractions = defaultdict(dict)
 
     for chapter_num, categories in raw_extractions.items():
         if narrator_name:
@@ -140,42 +174,14 @@ def sort_extractions(
             )
 
         for category, names in categories.items():
-            if category not in aggregated:
-                aggregated[category] = {}
-
             deduped_names = _deduplicate_entity_names(names, category)
 
             for name in deduped_names:
-                found_match = False
-                existing_keys = list(aggregated[category].keys())
+                _merge_entity(name, chapter_num, aggregated[category])
 
-                for existing in existing_keys:
-                    if is_similar_key(name, existing):
-                        _, keeper = prioritize_keys(name, existing)
+    result = dict(aggregated)
+    for cat in result.values():
+        for chapters in cat.values():
+            chapters.sort()
 
-                        if keeper == existing:
-                            if (
-                                chapter_num
-                                not in aggregated[category][existing]
-                            ):
-                                aggregated[category][existing].append(
-                                    chapter_num
-                                )
-                        else:
-                            logger.debug(f"Merging '{existing}' into '{name}'")
-                            chapters = aggregated[category].pop(existing)
-                            aggregated[category][name] = chapters
-                            if chapter_num not in aggregated[category][name]:
-                                aggregated[category][name].append(chapter_num)
-
-                        found_match = True
-                        break
-
-                if not found_match:
-                    aggregated[category][name] = [chapter_num]
-
-    for cat in aggregated.values():
-        for name in cat:
-            cat[name].sort()
-
-    return aggregated
+    return result

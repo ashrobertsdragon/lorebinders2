@@ -1,36 +1,14 @@
-import json
+from pathlib import Path
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from pydantic_ai.messages import (
-    ModelMessage,
-    ModelResponse,
-    TextPart,
-    UserPromptPart,
-)
-from pydantic_ai.models.function import FunctionModel
 
 from lorebinders import models
-from lorebinders.agent import (
-    create_analysis_agent,
-    create_extraction_agent,
-)
-from lorebinders.app import create_analyzer, create_extractor
-from lorebinders.settings import Settings
-
-
-def mock_prompt_loader(filename: str) -> str:
-    return f"Mock content for {filename}"
+from lorebinders.app import run
 
 
 @pytest.fixture
-def test_deps():
-    return models.AgentDeps(
-        settings=Settings(), prompt_loader=mock_prompt_loader
-    )
-
-
-@pytest.fixture
-def test_config(tmp_path):
+def run_config(tmp_path: Path) -> models.RunConfiguration:
     return models.RunConfiguration(
         book_path=tmp_path / "book.txt",
         author_name="Test Author",
@@ -39,99 +17,53 @@ def test_config(tmp_path):
     )
 
 
-@pytest.mark.anyio
-async def test_create_extractor(test_config, test_deps) -> None:
-    def test_extract(
-        messages: list[ModelMessage], info: object
-    ) -> ModelResponse:
-        found = False
-        for msg in messages:
-            for part in msg.parts:
-                if isinstance(
-                    part, UserPromptPart
-                ) and "Some chapter content" in str(part.content):
-                    found = True
-                    break
-        assert found, f"User prompt not found in messages: {messages}"
+def test_run_returns_path(run_config: models.RunConfiguration) -> None:
+    """Test that run delegates to build_binder and returns a Path."""
+    fake_path = Path("/fake/output/Test_Book_story_bible.pdf")
 
-        return ModelResponse(
-            parts=[
-                TextPart(
-                    content=json.dumps(
-                        {
-                            "results": [
-                                {
-                                    "category": "Characters",
-                                    "entities": ["Alice", "Bob"],
-                                }
-                            ]
-                        }
-                    )
-                )
-            ]
+    with patch(
+        "lorebinders.app.build_binder",
+        new_callable=AsyncMock,
+        return_value=fake_path,
+    ) as mock_build:
+        result = run(run_config)
+
+    mock_build.assert_awaited_once_with(
+        run_config,
+        progress=None,
+        extraction_agent=None,
+        analysis_agent=None,
+        summarization_agent=None,
+    )
+    assert result == fake_path
+
+
+def test_run_passes_optional_args(run_config: models.RunConfiguration) -> None:
+    """Test that agent overrides and progress callbacks are forwarded."""
+    fake_path = Path("/fake/output/Test_Book_story_bible.pdf")
+    fake_agent = MagicMock()
+
+    def fake_progress(update: models.ProgressUpdate) -> None:
+        pass
+
+    with patch(
+        "lorebinders.app.build_binder",
+        new_callable=AsyncMock,
+        return_value=fake_path,
+    ) as mock_build:
+        result = run(
+            run_config,
+            progress=fake_progress,
+            extraction_agent=fake_agent,
+            analysis_agent=fake_agent,
+            summarization_agent=fake_agent,
         )
 
-    agent = create_extraction_agent(test_deps.settings)
-
-    with agent.override(model=FunctionModel(test_extract)):
-        extractor = create_extractor(
-            test_config, agent, test_deps, categories=["Characters"]
-        )
-
-        chapter = models.Chapter(
-            number=1, title="Ch1", content="Some chapter content"
-        )
-        results = await extractor(chapter)
-
-        assert results == {"Characters": ["Alice", "Bob"]}
-
-
-@pytest.mark.anyio
-async def test_create_analyzer(test_deps) -> None:
-    """Test create_analyzer logic with FunctionModel."""
-
-    def test_analyze(
-        messages: list[ModelMessage], info: object
-    ) -> ModelResponse:
-        found = False
-        for msg in messages:
-            for part in msg.parts:
-                if isinstance(part, UserPromptPart):
-                    if "Role" in str(part.content) and "Alice" in str(
-                        part.content
-                    ):
-                        found = True
-                        break
-        assert found, f"User prompt content not found in messages: {messages}"
-
-        result = {
-            "entity_name": "Alice",
-            "category": "Characters",
-            "traits": [
-                {"trait": "Role", "value": "Protagonist", "evidence": "text"},
-            ],
-        }
-        return ModelResponse(
-            parts=[TextPart(content=json.dumps({"response": [result]}))]
-        )
-
-    agent = create_analysis_agent(test_deps.settings)
-
-    with agent.override(model=FunctionModel(test_analyze)):
-        traits_map = {"Characters": ["Role"]}
-        analyzer = create_analyzer(
-            agent, test_deps, effective_traits=traits_map
-        )
-
-        chapter = models.Chapter(number=1, title="Ch1", content="Context")
-
-        categories: list[models.CategoryTarget] = [
-            models.CategoryTarget(name="Characters", entities=["Alice"])
-        ]
-        profiles = await analyzer(categories, chapter)
-
-        assert len(profiles) == 1
-        profile = profiles[0]
-        assert profile.name == "Alice"
-        assert profile.category == "Characters"
-        assert profile.traits["Role"] == "Protagonist"
+    mock_build.assert_awaited_once_with(
+        run_config,
+        progress=fake_progress,
+        extraction_agent=fake_agent,
+        analysis_agent=fake_agent,
+        summarization_agent=fake_agent,
+    )
+    assert result == fake_path
