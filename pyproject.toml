@@ -46,6 +46,9 @@ cli = [
     "rich>=14.2.0",
     "typer>=0.21.1",
 ]
+db = [
+    "sqlalchemy>=2.0.47",
+]
 
 [dependency-groups]
 dev = ["pre-commit>=4.2.0", { include-group = "testing" }]
