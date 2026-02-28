@@ -10,7 +10,6 @@ from lorebinders.agent.factory import (
     load_prompt_from_assets,
     run_agent,
 )
-from lorebinders.agent.settings import settings_config
 from lorebinders.agent.summarization import summarize_binder
 
 __all__ = [
@@ -22,6 +21,5 @@ __all__ = [
     "create_summarization_agent",
     "load_prompt_from_assets",
     "run_agent",
-    "settings_config",
     "summarize_binder",
 ]

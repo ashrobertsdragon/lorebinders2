@@ -115,7 +115,7 @@ mypy-init-return = true
 convention = "google"
 
 [tool.pytest]
-addopts = ["--cov=lorebinders", "--cov-fail-under=80"]
+addopts = ["--cov=lorebinders", "--cov-report=json", "--cov-fail-under=80", "-rf"]
 pythonpath = ["src", "."]
 testpaths = ["tests"]
 markers = ["external: mark a test as requiring external an external dependency"]
